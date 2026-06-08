@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BodyTrack</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  const cfg = {
+    apiKey:"AIzaSyBIifzTq-H_9WcnwfOvprmFAn6OolSsoh0",
+    authDomain:"bodytrack-8d5a6.firebaseapp.com",
+    databaseURL:"https://bodytrack-8d5a6-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId:"bodytrack-8d5a6",
+    storageBucket:"bodytrack-8d5a6.firebasestorage.app",
+    messagingSenderId:"523792209488",
+    appId:"1:523792209488:web:c6e8b9c29ac6efca4e2355"
+  };
+  const app = initializeApp(cfg);
+  const db  = getDatabase(app);
+  window._fbSet    = (p,d) => set(ref(db,p),d);
+  window._fbListen = (p,cb) => onValue(ref(db,p), s => cb(s.val()));
+  window._fbGet    = async p => { const s = await get(ref(db,p)); return s.val(); };
+  window._fbReady  = true;
+  document.dispatchEvent(new Event('fbReady'));
+</script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --i0:#0e0e12;--i1:#2a2a35;--i2:#52526a;--i3:#9090a8;--i4:#c0c0d0;
+  --p0:#ffffff;--p1:#f7f7f5;--p2:#efefe9;--p3:#e2e2da;
+  --gold:#b8934a;--gold-l:#f5edd8;--gold-d:#7a5f2a;
+  --ok:#2d6a4f;--ok-l:#e8f4ee;
+  --warn:#c0392b;--warn-l:#faeae8;
+  --line:#00000012;--line2:#0000001e;
+  --r:14px;--rs:9px;
+  --fs:'Inter',sans-serif;--ff:'Cormorant Garamond',Georgia,serif;--fm:'DM Mono',monospace;
+}
+.dk{
+  --i0:#f0f0f6;--i1:#c8c8de;--i2:#8888a8;--i3:#55556a;--i4:#35353f;
+  --p0:#131318;--p1:#1a1a22;--p2:#20202a;--p3:#26263a;
+  --gold:#d4a857;--gold-l:#2e2a1a;--gold-d:#e8c87a;
+  --ok:#4ade80;--ok-l:#0f2a1a;
+  --warn:#f87171;--warn-l:#2a0f0f;
+  --line:#ffffff12;--line2:#ffffff1e;
+}
+body{background:var(--p1);color:var(--i0);font-family:var(--fs);font-size:14px;line-height:1.5;transition:background .25s,color .25s;-webkit-text-size-adjust:100%}
+
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;background:var(--p1)}
+.login-box{background:var(--p0);border:1px solid var(--line2);border-radius:20px;padding:36px 28px;width:100%;max-width:380px;box-shadow:0 8px 40px #00000014}
+.login-logo{font-family:var(--ff);font-size:26px;font-weight:300;letter-spacing:.14em;text-align:center;margin-bottom:4px;text-transform:uppercase;color:var(--i0)}
+.login-logo span{color:var(--gold);font-weight:500}
+.login-sub{font-size:11px;color:var(--i3);text-align:center;margin-bottom:28px;font-family:var(--fm);letter-spacing:.08em;text-transform:uppercase}
+.role-grid{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.role-btn{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line2);background:transparent;cursor:pointer;font-family:var(--fs);text-align:left;width:100%;transition:all .18s}
+.role-btn:hover{border-color:var(--gold);background:var(--gold-l)}
+.role-btn.sel{border-color:var(--gold);background:var(--gold-l)}
+.role-av{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--ff);font-size:16px;flex-shrink:0}
+.role-name{font-size:14px;font-weight:600;color:var(--i0);margin-bottom:1px}
+.role-desc{font-size:11px;color:var(--i2)}
+.pw-wrap{margin-bottom:14px}
+.pw-wrap label{display:block;font-size:11px;color:var(--i2);text-transform:uppercase;letter-spacing:.05em;font-weight:500;margin-bottom:5px}
+.pw-wrap input{width:100%;background:var(--p1);border:1px solid var(--line2);color:var(--i0);border-radius:var(--rs);padding:11px 14px;font-size:14px;font-family:var(--fs);outline:none;transition:border .18s}
+.pw-wrap input:focus{border-color:var(--gold)}
+.login-btn{width:100%;padding:13px;background:var(--i0);color:var(--p0);border:none;border-radius:var(--rs);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--fs);transition:opacity .18s}
+.login-btn:hover{opacity:.85}
+.login-err{font-size:12px;color:var(--warn);text-align:center;margin-top:8px;min-height:18px}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:52px;background:var(--p0);border-bottom:1px solid var(--line2);position:sticky;top:0;z-index:100;gap:10px}
+.wordmark{font-family:var(--ff);font-size:18px;font-weight:300;letter-spacing:.12em;color:var(--i0);text-transform:uppercase;flex-shrink:0}
+.wordmark span{color:var(--gold);font-weight:500}
+.topbar-mid{display:flex;align-items:center;gap:6px;flex:1;justify-content:center;min-width:0;overflow:hidden}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--i4);flex-shrink:0;transition:background .3s}
+.sync-dot.ok{background:var(--ok)}
+.sync-dot.busy{background:var(--gold);animation:pulse .8s infinite}
+.sync-dot.err{background:var(--warn)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.sync-label{font-size:11px;color:var(--i3);font-family:var(--fm)}
+.role-badge{font-family:var(--fm);font-size:10px;padding:3px 8px;border-radius:100px;border:1px solid var(--line2);color:var(--i2);white-space:nowrap}
+.topbar-r{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.ibtn{width:36px;height:36px;border-radius:8px;background:var(--p0);border:1.5px solid var(--i4);color:var(--i0);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .15s;flex-shrink:0;font-weight:400}
+.ibtn:hover{background:var(--p2);border-color:var(--i2);color:var(--i0)}
+.ibtn.on{background:var(--gold);border-color:var(--gold);color:#fff}
+
+/* MEMBER BAR */
+.mbar{display:flex;align-items:center;gap:6px;padding:10px 18px 0;background:var(--p0);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.mbar::-webkit-scrollbar{display:none}
+.mchip{display:flex;align-items:center;gap:7px;padding:6px 14px;border-radius:100px;border:1px solid var(--line2);background:transparent;cursor:pointer;white-space:nowrap;font-size:13px;color:var(--i2);font-family:var(--fs);transition:all .18s;flex-shrink:0}
+.mchip:hover{color:var(--i0);border-color:var(--i4)}
+.mchip.sel{color:var(--p0);border-color:transparent}
+.mchip.disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+.mchip .av{width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.add-chip{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:100px;border:1.5px dashed var(--i4);background:transparent;cursor:pointer;white-space:nowrap;font-size:12px;color:var(--i3);font-family:var(--fs);transition:all .18s;flex-shrink:0}
+.add-chip:hover{border-color:var(--gold);color:var(--gold)}
+
+/* TABS */
+.tabs{display:flex;padding:0 18px;background:var(--p0);border-bottom:1px solid var(--line2);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:11px 14px;font-size:13px;color:var(--i3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .18s;flex-shrink:0;white-space:nowrap}
+.tab:hover{color:var(--i1)}
+.tab.sel{color:var(--i0);border-bottom-color:var(--gold);font-weight:500}
+
+/* COACH HEADER */
+.coach-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:var(--p0);border-bottom:1px solid var(--line2)}
+.coach-label{font-family:var(--fm);font-size:11px;color:var(--gold);letter-spacing:.1em;text-transform:uppercase}
+.coach-date{font-size:12px;color:var(--i3)}
+
+/* PAGE */
+.page{padding:16px 18px;max-width:900px;margin:0 auto}
+.sh{font-family:var(--fm);font-size:11px;color:var(--i3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;margin-top:2px}
+
+/* STAT CARDS */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px;margin-bottom:14px}
+.sc{background:var(--p0);border:1px solid var(--line2);border-radius:var(--r);padding:14px;position:relative;overflow:hidden}
+.sc-bar{position:absolute;top:0;left:0;right:0;height:3px}
+.sc-lbl{font-size:10px;color:var(--i3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px}
+.sc-val{font-family:var(--fs);font-size:30px;font-weight:700;color:var(--i0);line-height:1;margin-bottom:3px;font-variant-numeric:tabular-nums}
+.sc-unit{font-size:12px;color:var(--i2);font-weight:400}
+.sc-sub{font-size:11px;color:var(--i3);margin-bottom:5px}
+.pill{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:500;padding:3px 8px;border-radius:100px}
+.pill-ok{background:var(--ok-l);color:var(--ok)}
+.pill-warn{background:var(--warn-l);color:var(--warn)}
+.pill-gold{background:var(--gold-l);color:var(--gold-d)}
+
+/* LEADERBOARD */
+.lb-wrap{background:var(--p0);border:1px solid var(--line2);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
+.lb-hd{padding:12px 16px;border-bottom:1px solid var(--line2)}
+.lb-hd-title{font-family:var(--fm);font-size:10px;color:var(--i3);letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.lb-hd-rule{font-size:11px;color:var(--i3);margin-top:3px}
+.lb-row{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);gap:12px;cursor:pointer;transition:background .15s}
+.lb-row:last-child{border-bottom:none}
+.lb-row:hover{background:var(--p1)}
+.lb-rank{font-family:var(--ff);font-size:24px;font-weight:300;min-width:32px;color:var(--i3);line-height:1}
+.lb-av{width:34px;height:34px;border-radius:50%;font-family:var(--ff);font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lb-info{flex:1;min-width:0}
+.lb-name{font-family:var(--ff);font-size:17px;font-weight:400;color:var(--i0)}
+.lb-detail{font-family:var(--fm);font-size:10px;color:var(--i3);margin-top:2px}
+.lb-right{text-align:right;flex-shrink:0}
+.lb-score{font-family:var(--fs);font-size:26px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.lb-score-lbl{font-family:var(--fm);font-size:10px;color:var(--i3)}
+.lb-bar-wrap{width:60px;height:3px;background:var(--p3);border-radius:2px;margin-top:5px;margin-left:auto}
+.lb-bar-fill{height:100%;border-radius:2px}
+
+/* SCORE HERO */
+.score-hero{background:var(--p0);border:1px solid var(--line2);border-radius:var(--r);padding:24px;margin-bottom:14px;text-align:center}
+.score-eyebrow{font-family:var(--fm);font-size:10px;color:var(--i3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
+.score-number{font-family:var(--fs);font-size:72px;font-weight:700;line-height:1;margin-bottom:5px;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.score-tagline{font-size:12px;color:var(--i3)}
+.score-bands{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.band{border:1px solid var(--line2);border-radius:var(--rs);padding:14px}
+.band-lbl{font-family:var(--fm);font-size:10px;color:var(--i3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px}
+.band-w{font-family:var(--fm);font-size:10px;color:var(--gold);display:block;margin-bottom:8px}
+.band-val{font-family:var(--fs);font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.band-unit{font-size:12px;color:var(--i2);font-weight:400}
+.band-track{height:4px;background:var(--p3);border-radius:2px;overflow:hidden;margin:8px 0}
+.band-fill{height:100%;border-radius:2px;transition:width .9s cubic-bezier(.4,0,.2,1)}
+.band-foot{display:flex;justify-content:space-between;font-family:var(--fm);font-size:10px;color:var(--i3)}
+.band-score{font-family:var(--fs);font-size:18px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
+.band-score-lbl{font-family:var(--fm);font-size:10px;color:var(--i3)}
+
+/* CHART */
+.cc{background:var(--p0);border:1px solid var(--line2);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.cc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.cc-title{font-family:var(--fm);font-size:10px;color:var(--i3);letter-spacing:.08em;text-transform:uppercase}
+.ctog{display:flex;gap:4px}
+.ctbtn{padding:4px 10px;border-radius:6px;border:1px solid var(--line2);background:transparent;color:var(--i3);font-size:11px;cursor:pointer;font-family:var(--fm);transition:all .15s}
+.ctbtn.sel{background:var(--i0);color:var(--p0);border-color:var(--i0)}
+
+/* GOAL BARS */
+.gi{background:var(--p0);border:1px solid var(--line2);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.gi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.gi-name{font-size:13px;color:var(--i1);font-weight:500}
+.gi-pct{font-family:var(--fm);font-size:14px;color:var(--i0)}
+.track{height:4px;background:var(--p3);border-radius:2px;overflow:hidden;margin-bottom:7px}
+.fill{height:100%;border-radius:2px;transition:width .9s cubic-bezier(.4,0,.2,1)}
+.gi-foot{display:flex;justify-content:space-between;font-size:10px;color:var(--i3);font-family:var(--fm)}
+
+/* FORM */
+.iform{background:var(--p0);border:1px solid var(--line2);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.igrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.span2{grid-column:span 2}
+.ig label{display:block;font-size:11px;color:var(--i2);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px;font-weight:500}
+.ig input,.ig select,.ig textarea{width:100%;background:var(--p1);border:1px solid var(--line2);color:var(--i0);border-radius:var(--rs);padding:9px 11px;font-size:14px;font-family:var(--fs);outline:none;transition:border .18s;-webkit-appearance:none}
+.ig input:focus,.ig textarea:focus,.ig select:focus{border-color:var(--gold)}
+.ig input::placeholder{color:var(--i4)}
+.ig textarea{resize:vertical;min-height:68px}
+.isec{font-family:var(--fm);font-size:10px;color:var(--i3);text-transform:uppercase;letter-spacing:.1em;grid-column:span 2;padding:8px 0 2px;border-top:1px solid var(--line);margin-top:4px}
+.sbtn{width:100%;padding:12px;background:var(--i0);color:var(--p0);border:none;border-radius:var(--rs);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--fs);transition:opacity .18s,transform .1s}
+.sbtn:hover{opacity:.85}
+.sbtn:active{transform:scale(.99)}
+.sec-btn{width:100%;padding:10px;margin-top:8px;background:transparent;color:var(--i2);border:1px solid var(--line2);border-radius:var(--rs);font-size:13px;cursor:pointer;font-family:var(--fs);transition:all .18s}
+.sec-btn:hover{background:var(--p2);color:var(--i0)}
+
+/* INBODY UPLOAD */
+.inbody-zone{border:1.5px dashed var(--line2);background:var(--p1);border-radius:var(--r);padding:20px;text-align:center;cursor:pointer;transition:all .18s;margin-bottom:14px}
+.inbody-zone:hover{border-color:var(--gold);background:var(--gold-l)}
+.ai-loading{display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--p1);border-radius:var(--rs);font-size:13px;color:var(--i2);margin-bottom:12px}
+.ai-ok{display:flex;align-items:center;gap:8px;padding:10px 13px;background:var(--ok-l);border-radius:var(--rs);font-size:13px;color:var(--ok);margin-bottom:12px}
+.ai-err{display:flex;align-items:center;gap:8px;padding:10px 13px;background:var(--warn-l);border-radius:var(--rs);font-size:13px;color:var(--warn);margin-bottom:12px}
+.spinner{width:14px;height:14px;border:2px solid var(--i4);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* TOGGLE */
+.trow{display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;user-select:none}
+.ttrack{width:40px;height:22px;border-radius:11px;position:relative;transition:background .2s;flex-shrink:0;background:var(--p3)}
+.ttrack.on{background:var(--gold)}
+.tthumb{width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px #00000030}
+.ttrack.on .tthumb{transform:translateX(18px)}
+.tlabel{font-size:13px;color:var(--i1);font-weight:500}
+
+/* NOTES */
+.ncard{background:var(--p0);border:1px solid var(--line2);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.ndate{font-family:var(--fm);font-size:10px;color:var(--i3);margin-bottom:5px;letter-spacing:.06em}
+.ntext{font-size:14px;color:var(--i1);line-height:1.65}
+.ntags{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.ntag{font-size:11px;padding:3px 8px;border-radius:100px}
+.ntag.ok{color:var(--ok);background:var(--ok-l)}
+.ntag.warn{color:var(--warn);background:var(--warn-l)}
+
+/* COACH CARDS */
+.cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:16px}
+.ccard{background:var(--p0);border:1px solid var(--line2);border-radius:var(--r);padding:18px}
+.ccard-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
+.cav{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--ff);font-size:17px;flex-shrink:0}
+.cmeta{flex:1;min-width:0}
+.cname{font-family:var(--ff);font-size:21px;font-weight:300;color:var(--i0);line-height:1.1}
+.csub{font-size:11px;color:var(--i3);margin-top:2px;font-family:var(--fm)}
+.csg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.csi{background:var(--p1);border-radius:var(--rs);padding:9px 11px}
+.csi-l{font-size:10px;color:var(--i3);text-transform:uppercase;letter-spacing:.07em;font-family:var(--fm);margin-bottom:2px}
+.csi-v{font-family:var(--fs);font-size:19px;font-weight:700;color:var(--i0);font-variant-numeric:tabular-nums}
+.csi-u{font-size:11px;color:var(--i2);font-weight:400}
+.csi-d{font-family:var(--fm);font-size:10px;margin-top:2px}
+.clast{border-top:1px solid var(--line);padding-top:10px}
+.clast-d{font-family:var(--fm);font-size:10px;color:var(--i3);margin-bottom:3px}
+.clast-t{font-size:12px;color:var(--i2);line-height:1.5}
+
+/* DIST */
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.dcard{background:var(--p0);border:1px solid var(--line2);border-radius:var(--r);padding:14px}
+.dcard-title{font-family:var(--fm);font-size:10px;color:var(--i3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:11px}
+.drow{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.drow:last-child{margin-bottom:0}
+.dlbl{font-size:11px;color:var(--i2);min-width:26px}
+.dbar-wrap{flex:1;height:5px;background:var(--p3);border-radius:3px;overflow:hidden}
+.dbar{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.dval{font-family:var(--fm);font-size:10px;color:var(--i1);min-width:40px;text-align:right}
+
+/* HISTORY ROW */
+.hrow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.hrow:last-child{border-bottom:none}
+.hdate{font-family:var(--fm);font-size:10px;color:var(--i3)}
+.hvals{font-size:12px;color:var(--i1)}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:#00000070;z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:var(--p0);border-radius:20px 20px 0 0;padding:22px 20px 32px;width:100%;max-width:580px;max-height:92vh;overflow-y:auto}
+.modal-title{font-family:var(--ff);font-size:22px;font-weight:300;color:var(--i0);letter-spacing:.04em;margin-bottom:16px}
+.cpick{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:all .15s;flex-shrink:0}
+.cpick.sel{border-color:var(--i0);transform:scale(1.18)}
+.color-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px}
+
+/* EMPTY */
+.empty{text-align:center;padding:48px 20px}
+.empty-t{font-family:var(--ff);font-size:20px;font-weight:300;color:var(--i2);margin-bottom:5px}
+.empty-s{font-size:12px;color:var(--i3);line-height:1.6}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--i0);color:var(--p0);padding:10px 20px;border-radius:100px;font-size:13px;font-weight:500;transition:transform .28s;z-index:999;pointer-events:none;white-space:nowrap}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* RESPONSIVE */
+@media(max-width:500px){
+  .page{padding:12px 14px}
+  .topbar,.mbar,.tabs,.coach-hd{padding-left:14px;padding-right:14px}
+  .sg{grid-template-columns:1fr 1fr}
+  .cgrid{grid-template-columns:1fr}
+  .score-number{font-size:56px}
+  .score-bands,.dgrid{grid-template-columns:1fr 1fr}
+  .sync-label{display:none}
+  .wordmark{font-size:16px}
+  .modal{padding:18px 16px 28px}
+  .igrid{grid-template-columns:1fr 1fr}
+  .login-box{padding:28px 18px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+<div class="login-wrap">
+  <div class="login-box">
+    <div class="login-logo">Body<span>Track</span></div>
+    <div class="login-sub">身體數據競賽追蹤平台</div>
+    <div class="role-grid" id="roleGrid">
+      <button class="role-btn" onclick="selectRole('erin',this)">
+        <div class="role-av" style="background:#b8934a18;color:#b8934a">E</div>
+        <div><div class="role-name">Erin</div><div class="role-desc">查看所有成員數據與分數</div></div>
+      </button>
+      <button class="role-btn" onclick="selectRole('henry',this)">
+        <div class="role-av" style="background:#2d6a4f18;color:#2d6a4f">H</div>
+        <div><div class="role-name">Henry</div><div class="role-desc">查看自己的數據與分數</div></div>
+      </button>
+      <button class="role-btn" onclick="selectRole('coach',this)">
+        <div class="role-av" style="background:var(--gold);color:#fff">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="3" height="6" rx="1.5"/><rect x="19" y="9" width="3" height="6" rx="1.5"/><rect x="6" y="7" width="2" height="10" rx="1"/><rect x="16" y="7" width="2" height="10" rx="1"/><rect x="8" y="11" width="8" height="2" rx="1"/></svg>
+        </div>
+        <div><div class="role-name">教練</div><div class="role-desc">總覽所有成員，裁判視角</div></div>
+      </button>
+    </div>
+    <div class="pw-wrap">
+      <label>密碼</label>
+      <input type="password" id="pwInput" placeholder="輸入密碼" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">進入</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+</div>
+
+<!-- APP -->
+<div id="appScreen" style="display:none">
+  <div class="topbar">
+    <div class="wordmark">Body<span>Track</span></div>
+    <div class="topbar-mid">
+      <div class="sync-dot" id="syncDot"></div>
+      <span class="sync-label" id="syncLabel">連線中...</span>
+      <span class="role-badge" id="roleBadge"></span>
+    </div>
+    <div class="topbar-r">
+      <button class="ibtn" id="themeBtn" onclick="toggleTheme()" title="切換模式">
+        <svg id="themeIco" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <button class="ibtn" onclick="doLogout()" title="登出">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="mbar" id="mbar"></div>
+
+  <div id="normalUI">
+    <div class="tabs" id="tabsEl">
+      <div class="tab sel" onclick="swTab('dash',this)">總覽</div>
+      <div class="tab" onclick="swTab('score',this)">競賽分數</div>
+      <div class="tab" onclick="swTab('goals',this)">目標</div>
+      <div class="tab" onclick="swTab('input',this)">輸入</div>
+      <div class="tab" onclick="swTab('notes',this)">備註</div>
+    </div>
+    <div class="page" id="pageEl"></div>
+  </div>
+
+  <div id="coachUI" style="display:none">
+    <div class="coach-hd">
+      <span class="coach-label"><i class="fa-solid fa-trophy" style="margin-right:6px;font-size:11px"></i>教練裁判視角</span>
+      <span class="coach-date" id="coachDateEl"></span>
+    </div>
+    <div class="page" id="coachEl"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ── ROLES & AUTH ── */
+const ROLES = {
+  erin:  { pw:'e888', label:'Erin',  canAdd:true,  isCoach:false, canSeeAll:true  },
+  henry: { pw:'h888', label:'Henry', canAdd:false, isCoach:false, canSeeAll:false },
+  coach: { pw:'v888', label:'教練',  canAdd:true,  isCoach:true,  canSeeAll:true  },
+};
+let currentRole = null, selectedRole = null;
+
+function selectRole(r, el) {
+  selectedRole = r;
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('pwInput').focus();
+  document.getElementById('loginErr').textContent = '';
+}
+function doLogin() {
+  if (!selectedRole) { document.getElementById('loginErr').textContent = '請先選擇角色'; return; }
+  const pw = document.getElementById('pwInput').value;
+  if (pw !== ROLES[selectedRole].pw) {
+    document.getElementById('loginErr').textContent = '密碼錯誤';
+    document.getElementById('pwInput').value = '';
+    return;
+  }
+  currentRole = selectedRole;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  initApp();
+}
+function doLogout() {
+  currentRole = null; selectedRole = null;
+  document.getElementById('loginScreen').style.display = 'block';
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('pwInput').value = '';
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('sel'));
+  document.getElementById('loginErr').textContent = '';
+  killCharts();
+}
+
+/* ── SCORE ENGINE ── */
+const FAT_PER=2, FAT_MAX=8, MUS_PER=0.5, MUS_MAX=2;
+function getScore(id) {
+  const d = DB[id];
+  if (!d) return {score:0,fatDrop:0,musGain:0,fatScore:0,musScore:0,fatStart:0,musStart:0};
+  const fatStart = d.history?.[0]?.bodyfat ?? d.stats.bodyfat;
+  const musStart = d.history?.[0]?.muscle  ?? d.stats.muscle;
+  const fatDrop  = +(fatStart - d.stats.bodyfat).toFixed(2);
+  const musGain  = +(d.stats.muscle - musStart).toFixed(2);
+  const fatScore = +Math.min(FAT_MAX, Math.max(0, fatDrop * FAT_PER)).toFixed(2);
+  const musScore = +Math.min(MUS_MAX, Math.max(0, musGain * MUS_PER)).toFixed(2);
+  return {id, fatDrop, musGain, fatStart, musStart, fatScore, musScore, score:+(fatScore+musScore).toFixed(1)};
+}
+function getRanking() {
+  return Object.keys(DB).filter(id=>DB[id].inContest)
+    .map(id=>({...getScore(id), d:DB[id]}))
+    .sort((a,b)=>b.score-a.score)
+    .map((s,i)=>({...s, rank:i+1}));
+}
+
+/* ── DEFAULT DATA ── */
+const PALETTE=['#b8934a','#2d6a4f','#1a1a2e','#c0392b','#4a6fa5','#7b5e8a','#5a8a6a','#8a5a4a'];
+let pickColor=PALETTE[0], modalContest=true;
+let isDark=false, coachMode=false, curId='erin', curTab='dash', chartType='fat';
+let charts={};
+
+let DB = {
+  erin:{name:'Erin',color:'#b8934a',sex:'F',age:0,height:0,inContest:true,
+    stats:{weight:0,bodyfat:0,muscle:0},targets:{weight:0,bodyfat:0,muscle:0},
+    history:[],notes:[]},
+  henry:{name:'Henry',color:'#2d6a4f',sex:'M',age:0,height:0,inContest:true,
+    stats:{weight:0,bodyfat:0,muscle:0},targets:{weight:0,bodyfat:0,muscle:0},
+    history:[],notes:[]}
+};
+
+/* ── FIREBASE ── */
+function setSyncStatus(s){
+  const dot=document.getElementById('syncDot'), lbl=document.getElementById('syncLabel');
+  if(!dot) return;
+  dot.className='sync-dot '+s;
+  lbl.textContent=s==='ok'?'已同步':s==='busy'?'同步中...':'離線';
+}
+function fbSave(id){
+  if(!window._fbSet) return;
+  setSyncStatus('busy');
+  window._fbSet('members/'+id, DB[id]).then(()=>setSyncStatus('ok')).catch(()=>setSyncStatus('err'));
+}
+function startSync(){
+  if(!window._fbListen) return;
+  window._fbListen('members', val => {
+    if(val){ DB=val; if(!DB[curId]) curId=Object.keys(DB)[0]; renderMbar(); coachMode?renderCoach():renderPage(); }
+    setSyncStatus('ok');
+  });
+}
+async function loadSavedRoles(){
+  if(!window._fbGet) return;
+  try {
+    const saved = await window._fbGet('roles');
+    if(!saved) return;
+    Object.entries(saved).forEach(([id,role])=>{
+      if(!ROLES[id]) ROLES[id]=role;
+      addRoleBtn(id, role.label, DB[id]?.color||'#888');
+    });
+  } catch(e){}
+}
+
+/* ── APP INIT ── */
+function initApp(){
+  const role=ROLES[currentRole];
+  document.getElementById('roleBadge').textContent=role.label;
+  if(role.isCoach){
+    coachMode=true;
+    document.getElementById('normalUI').style.display='none';
+    document.getElementById('coachUI').style.display='block';
+    document.getElementById('coachDateEl').textContent=new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'long',day:'numeric'});
+  } else {
+    coachMode=false;
+    document.getElementById('normalUI').style.display='block';
+    document.getElementById('coachUI').style.display='none';
+    curId=currentRole;
+  }
+  if(window._fbReady){ startSync(); loadSavedRoles(); }
+  else document.addEventListener('fbReady',()=>{ startSync(); loadSavedRoles(); },{once:true});
+  setSyncStatus('busy');
+  renderMbar();
+  coachMode ? renderCoach() : renderPage();
+}
+
+/* ── HELPERS ── */
+function ini(n){return(n||'?').slice(0,1).toUpperCase()}
+function bmiOf(id){const d=DB[id];return d?.height?(d.stats.weight/Math.pow(d.height/100,2)).toFixed(1):'—'}
+function scoreCol(s,col){return s>=7?col:s>=4?'var(--gold)':'var(--warn)'}
+const MEDALS=['🥇','🥈','🥉'];
+function canManage(){return!!(currentRole&&ROLES[currentRole]&&(ROLES[currentRole].canAdd||ROLES[currentRole].isCoach))}
+
+/* ── RENDER MBAR ── */
+function renderMbar(){
+  const role=ROLES[currentRole];
+  document.getElementById('mbar').innerHTML=
+    Object.keys(DB).map(id=>{
+      const d=DB[id],sel=id===curId&&!coachMode;
+      const dis=!role.canSeeAll&&id!==currentRole;
+      return`<div class="mchip${sel?' sel':''}${dis?' disabled':''}" onclick="swMember('${id}')"
+        style="${sel?`background:${d.color};border-color:${d.color}`:''}">
+        <div class="av" style="${sel?'':`background:${d.color}18;color:${d.color}`}">${ini(d.name)}</div>${d.name}</div>`;
+    }).join('')+
+    (role.canAdd?`<button class="add-chip" onclick="openModal()"><i class="fa-solid fa-plus" style="font-size:11px"></i> 新增成員</button>`:'');
+}
+function swMember(id){
+  if(!ROLES[currentRole]?.canSeeAll&&id!==currentRole) return;
+  curId=id; chartType='fat'; renderMbar(); renderPage();
+}
+function swTab(t,el){
+  curTab=t;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('sel'));
+  if(el) el.classList.add('sel');
+  else{const o=['dash','score','goals','input','notes'];document.querySelectorAll('.tab').forEach((x,i)=>x.classList.toggle('sel',o[i]===t));}
+  renderPage();
+}
+function toggleTheme(){
+  isDark=!isDark;
+  document.body.classList.toggle('dk',isDark);
+  document.getElementById('themeIco').innerHTML = isDark
+    ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+    : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  document.getElementById('themeBtn').classList.toggle('on',isDark);
+  killCharts(); setTimeout(()=>renderPage(),30);
+}
+function killCharts(){Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});charts={};}
+function renderPage(){
+  killCharts();
+  const el=document.getElementById('pageEl');
+  if(curTab==='dash')      el.innerHTML=renderDash();
+  else if(curTab==='score') el.innerHTML=renderScore();
+  else if(curTab==='goals') el.innerHTML=renderGoals();
+  else if(curTab==='input') el.innerHTML=renderInput();
+  else if(curTab==='notes') el.innerHTML=renderNotes();
+  if(curTab==='dash'||curTab==='score') setTimeout(initChart,60);
+}
+
+/* ── LEADERBOARD ── */
+function renderLeaderboard(){
+  const ranked=getRanking(), top=ranked[0]?.score||1;
+  return`<div class="lb-wrap">
+    <div class="lb-hd">
+      <div class="lb-hd-title"><i class="fa-solid fa-trophy" style="color:var(--gold);font-size:11px"></i>排行榜</div>
+      <div class="lb-hd-rule">體脂每降 1% = 2 分（上限 8）· 肌肉每增 1 kg = 0.5 分（上限 2）· 滿分 10</div>
+    </div>
+    ${ranked.map((r,i)=>`
+    <div class="lb-row" onclick="swMember('${r.id}');swTab('score',null)">
+      <div class="lb-rank" style="${i===0?'color:var(--gold)':''}">${i<3?MEDALS[i]:i+1}</div>
+      <div class="lb-av" style="background:${r.d.color}18;color:${r.d.color}">${ini(r.d.name)}</div>
+      <div class="lb-info">
+        <div class="lb-name">${r.d.name}</div>
+        <div class="lb-detail">體脂 ↓${Math.max(0,r.fatDrop)}% · 肌肉 ↑${Math.max(0,r.musGain)} kg</div>
+      </div>
+      <div class="lb-right">
+        <div class="lb-score" style="color:${r.d.color}">${r.score}</div>
+        <div class="lb-score-lbl">/ 10</div>
+        <div class="lb-bar-wrap"><div class="lb-bar-fill" style="width:${r.score/10*100}%;background:${r.d.color}"></div></div>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+/* ── DASHBOARD ── */
+function renderDash(){
+  const d=DB[curId], sc=getScore(curId);
+  const ranked=getRanking(), myRank=ranked.findIndex(r=>r.id===curId)+1;
+  return`
+  <div class="sg" style="margin-top:2px">
+    <div class="sc"><div class="sc-bar" style="background:${d.color}"></div>
+      <div class="sc-lbl">體脂率</div><div class="sc-val">${d.stats.bodyfat}<span class="sc-unit">%</span></div>
+      <div class="sc-sub">已降 ${Math.max(0,sc.fatDrop)}%</div>
+      <span class="pill pill-ok">↓ ${Math.max(0,sc.fatDrop)}%</span>
+    </div>
+    <div class="sc"><div class="sc-bar" style="background:${d.color}"></div>
+      <div class="sc-lbl">肌肉量</div><div class="sc-val">${d.stats.muscle}<span class="sc-unit">kg</span></div>
+      <div class="sc-sub">已增 ${Math.max(0,sc.musGain)} kg</div>
+      <span class="pill pill-ok">↑ ${Math.max(0,sc.musGain)} kg</span>
+    </div>
+    <div class="sc" style="cursor:pointer" onclick="swTab('score',null)"><div class="sc-bar" style="background:${d.color}"></div>
+      <div class="sc-lbl">競賽分數</div>
+      <div class="sc-val" style="color:${scoreCol(sc.score,d.color)}">${sc.score}</div>
+      <div class="sc-sub">滿分 10 分</div>
+      <span class="pill pill-gold">#${myRank>0?myRank:'–'} / ${Object.keys(DB).length}</span>
+    </div>
+    <div class="sc"><div class="sc-bar" style="background:${d.color}"></div>
+      <div class="sc-lbl">體重</div><div class="sc-val">${d.stats.weight}<span class="sc-unit">kg</span></div>
+      <div class="sc-sub">目標 ${d.targets.weight} kg</div>
+      <span class="pill pill-warn">差 ${(d.stats.weight-d.targets.weight).toFixed(1)} kg</span>
+    </div>
+  </div>
+  ${d.stats.bmi||d.stats.visceralFat||d.stats.whr?`
+  <div class="sg">
+    ${d.stats.bmi?`<div class="sc"><div class="sc-bar" style="background:${d.color}"></div><div class="sc-lbl">BMI</div><div class="sc-val">${d.stats.bmi}</div><div class="sc-sub">身高 ${d.height||'—'} cm</div></div>`:''}
+    ${d.stats.visceralFat?`<div class="sc"><div class="sc-bar" style="background:${d.color}"></div><div class="sc-lbl">內臟脂肪</div><div class="sc-val">${d.stats.visceralFat}</div><div class="sc-sub">等級 1–20</div><span class="pill ${d.stats.visceralFat<=9?'pill-ok':d.stats.visceralFat<=14?'pill-gold':'pill-warn'}">${d.stats.visceralFat<=9?'正常':d.stats.visceralFat<=14?'偏高':'過高'}</span></div>`:''}
+    ${d.stats.whr?`<div class="sc"><div class="sc-bar" style="background:${d.color}"></div><div class="sc-lbl">腰臀比 WHR</div><div class="sc-val">${d.stats.whr}</div><div class="sc-sub">${d.sex==='F'?'女 < 0.85':'男 < 0.90'}</div><span class="pill ${(d.sex==='F'&&d.stats.whr<0.85)||(d.sex==='M'&&d.stats.whr<0.90)?'pill-ok':'pill-warn'}">${(d.sex==='F'&&d.stats.whr<0.85)||(d.sex==='M'&&d.stats.whr<0.90)?'正常':'偏高'}</span></div>`:''}
+  </div>`:''}
+  ${d.stats.muscleArms||d.stats.muscleTrunk||d.stats.muscleLegs?`
+  <div class="sh">部位分布</div>
+  <div class="dgrid">
+    <div class="dcard"><div class="dcard-title">肌肉分布</div>
+      ${[['手臂',d.stats.muscleArms],['軀幹',d.stats.muscleTrunk],['腿部',d.stats.muscleLegs]].filter(([,v])=>v).map(([l,v])=>{
+        const max=Math.max(d.stats.muscleArms||0,d.stats.muscleTrunk||0,d.stats.muscleLegs||0)||1;
+        return`<div class="drow"><span class="dlbl">${l}</span><div class="dbar-wrap"><div class="dbar" style="width:${v/max*100}%;background:${d.color}"></div></div><span class="dval">${v} kg</span></div>`;
+      }).join('')}
+    </div>
+    <div class="dcard"><div class="dcard-title">脂肪分布</div>
+      ${[['手臂',d.stats.fatArms],['軀幹',d.stats.fatTrunk],['腿部',d.stats.fatLegs]].filter(([,v])=>v).map(([l,v])=>{
+        const max=Math.max(d.stats.fatArms||0,d.stats.fatTrunk||0,d.stats.fatLegs||0)||1;
+        return`<div class="drow"><span class="dlbl">${l}</span><div class="dbar-wrap"><div class="dbar" style="width:${v/max*100}%;background:#c0392b88"></div></div><span class="dval">${v} kg</span></div>`;
+      }).join('')}
+    </div>
+  </div>`:''}
+  ${renderLeaderboard()}
+  <div class="cc">
+    <div class="cc-head">
+      <span class="cc-title">量測趨勢</span>
+      <div class="ctog">
+        <button class="ctbtn${chartType==='weight'?' sel':''}" onclick="setChart('weight')">體重</button>
+        <button class="ctbtn${chartType==='fat'?' sel':''}" onclick="setChart('fat')">體脂</button>
+        <button class="ctbtn${chartType==='muscle'?' sel':''}" onclick="setChart('muscle')">肌肉</button>
+      </div>
+    </div>
+    <div style="position:relative;height:170px"><canvas id="trendC" role="img" aria-label="${d.name}趨勢圖"></canvas></div>
+  </div>`;
+}
+
+/* ── SCORE ── */
+function renderScore(){
+  const d=DB[curId], sc=getScore(curId);
+  const ranked=getRanking(), myRank=ranked.findIndex(r=>r.id===curId)+1;
+  const col=scoreCol(sc.score,d.color);
+  return`<div style="margin-top:2px">
+  <div class="score-hero">
+    <div class="score-eyebrow"><i class="fa-solid fa-trophy" style="margin-right:5px"></i>${d.name} 的競賽分數</div>
+    <div class="score-number" style="color:${col}">${sc.score}</div>
+    <div class="score-tagline">第 ${myRank>0?myRank:'–'} 名 · 共 ${Object.keys(DB).filter(id=>DB[id].inContest).length} 位參賽 · 滿分 10 分</div>
+    <div class="score-bands">
+      <div class="band">
+        <div class="band-lbl">體脂降幅</div>
+        <div class="band-w">每 1% = 2 分，上限 8</div>
+        <div class="band-val" style="color:${d.color}">${Math.max(0,sc.fatDrop)}<span class="band-unit">%</span></div>
+        <div class="band-track"><div class="band-fill" style="width:${sc.fatScore/FAT_MAX*100}%;background:${d.color}"></div></div>
+        <div class="band-foot"><span>起 ${sc.fatStart}%</span><span>現 ${d.stats.bodyfat}%</span></div>
+        <div class="band-score" style="color:${d.color}">${sc.fatScore}</div>
+        <div class="band-score-lbl">得分 / 8</div>
+      </div>
+      <div class="band">
+        <div class="band-lbl">肌肉增幅</div>
+        <div class="band-w">每 1 kg = 0.5 分，上限 2</div>
+        <div class="band-val" style="color:${d.color}">${Math.max(0,sc.musGain)}<span class="band-unit">kg</span></div>
+        <div class="band-track"><div class="band-fill" style="width:${sc.musScore/MUS_MAX*100}%;background:${d.color}88"></div></div>
+        <div class="band-foot"><span>起 ${sc.musStart}kg</span><span>現 ${d.stats.muscle}kg</span></div>
+        <div class="band-score" style="color:${d.color}">${sc.musScore}</div>
+        <div class="band-score-lbl">得分 / 2</div>
+      </div>
+    </div>
+  </div>
+  ${renderLeaderboard()}
+  </div>`;
+}
+
+/* ── GOALS ── */
+function renderGoals(){
+  const d=DB[curId], sc=getScore(curId);
+  const wS=d.history?.[0]?.weight??d.stats.weight;
+  const wN=wS-d.targets.weight, wD=wS-d.stats.weight;
+  const wP=wN>0?+Math.min(100,Math.max(0,wD/wN*100)).toFixed(1):100;
+  const fN=sc.fatStart-d.targets.bodyfat, fP=fN>0?+Math.min(100,Math.max(0,sc.fatDrop/fN*100)).toFixed(1):100;
+  const mN=d.targets.muscle-sc.musStart, mP=mN>0?+Math.min(100,Math.max(0,sc.musGain/mN*100)).toFixed(1):100;
+  const goals=[
+    {name:'體脂率（計分）',pct:fP,start:sc.fatStart,cur:d.stats.bodyfat,tgt:d.targets.bodyfat,unit:'%'},
+    {name:'肌肉量（計分）',pct:mP,start:sc.musStart,cur:d.stats.muscle,tgt:d.targets.muscle,unit:'kg'},
+    {name:'體重（參考）',pct:wP,start:wS,cur:d.stats.weight,tgt:d.targets.weight,unit:'kg'},
+  ];
+  return`<div style="margin-top:2px"><div class="sh">目標進度</div>
+  ${goals.map(g=>{
+    const c=g.pct>=70?d.color:g.pct<30?'var(--warn)':'var(--gold)';
+    return`<div class="gi"><div class="gi-top"><span class="gi-name">${g.name}</span><span class="gi-pct" style="color:${c}">${g.pct}%</span></div>
+    <div class="track"><div class="fill" style="width:${g.pct}%;background:${c}"></div></div>
+    <div class="gi-foot"><span>起 ${g.start}${g.unit}</span><span>現 ${g.cur}${g.unit}</span><span>目標 ${g.tgt}${g.unit}</span></div></div>`;
+  }).join('')}
+  <div class="iform" style="margin-top:18px">
+    <div class="sh" style="margin-top:0">修改目標</div>
+    <div class="igrid">
+      <div class="ig"><label>目標體重 (kg)</label><input type="number" id="gt_w" placeholder="${d.targets.weight}" step="0.1"></div>
+      <div class="ig"><label>目標體脂率 (%)</label><input type="number" id="gt_f" placeholder="${d.targets.bodyfat}" step="0.1"></div>
+      <div class="ig span2"><label>目標肌肉量 (kg)</label><input type="number" id="gt_m" placeholder="${d.targets.muscle}" step="0.1"></div>
+    </div>
+    <button class="sbtn" onclick="saveGoals()">更新目標</button>
+  </div></div>`;
+}
+function saveGoals(){
+  const d=DB[curId];
+  const w=parseFloat(document.getElementById('gt_w').value);
+  const f=parseFloat(document.getElementById('gt_f').value);
+  const m=parseFloat(document.getElementById('gt_m').value);
+  if(w)d.targets.weight=w; if(f)d.targets.bodyfat=f; if(m)d.targets.muscle=m;
+  fbSave(curId); toast('目標已更新'); renderPage();
+}
+
+/* ── INPUT ── */
+function renderInput(){
+  const d=DB[curId], recent=(d.history||[]).slice().reverse().slice(0,4);
+  return`<div style="margin-top:2px">
+  <div class="iform">
+    <div class="sh" style="margin-top:0">新增量測 — ${d.name}</div>
+    <div class="inbody-zone" onclick="document.getElementById('ibFile').click()">
+      <i class="fa-regular fa-image" style="font-size:20px;color:var(--i3);display:block;margin-bottom:7px"></i>
+      <div style="font-size:13px;color:var(--i2);font-weight:500">上傳 InBody 圖片，AI 自動讀取</div>
+      <div style="font-size:11px;color:var(--i3);margin-top:3px">點擊選取圖片</div>
+      <input type="file" id="ibFile" accept="image/*" style="display:none" onchange="analyzeInBody(event)">
+    </div>
+    <div id="aiStatus" style="display:none"></div>
+    <div class="igrid">
+      <div class="ig span2"><label>日期</label><input type="date" id="in_d" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="isec">基本數據</div>
+      <div class="ig"><label>體重 (kg)</label><input type="number" id="in_w" placeholder="${d.stats.weight}" step="0.1"></div>
+      <div class="ig"><label>體脂率 (%)</label><input type="number" id="in_f" placeholder="${d.stats.bodyfat}" step="0.1"></div>
+      <div class="ig"><label>骨骼肌重 (kg)</label><input type="number" id="in_m" placeholder="${d.stats.muscle}" step="0.1"></div>
+      <div class="ig"><label>BMI</label><input type="number" id="in_bmi" placeholder="${d.stats.bmi||'—'}" step="0.1"></div>
+      <div class="ig"><label>內臟脂肪等級</label><input type="number" id="in_vf" placeholder="${d.stats.visceralFat||'—'}" step="1"></div>
+      <div class="ig"><label>腰臀比 WHR</label><input type="number" id="in_whr" placeholder="${d.stats.whr||'—'}" step="0.01"></div>
+      <div class="isec">肌肉分布 (kg)</div>
+      <div class="ig"><label>手臂</label><input type="number" id="in_ma" placeholder="${d.stats.muscleArms||'—'}" step="0.1"></div>
+      <div class="ig"><label>軀幹</label><input type="number" id="in_mt" placeholder="${d.stats.muscleTrunk||'—'}" step="0.1"></div>
+      <div class="ig span2"><label>腿部</label><input type="number" id="in_ml" placeholder="${d.stats.muscleLegs||'—'}" step="0.1"></div>
+      <div class="isec">脂肪分布 (kg)</div>
+      <div class="ig"><label>手臂</label><input type="number" id="in_fa" placeholder="${d.stats.fatArms||'—'}" step="0.1"></div>
+      <div class="ig"><label>軀幹</label><input type="number" id="in_ft" placeholder="${d.stats.fatTrunk||'—'}" step="0.1"></div>
+      <div class="ig span2"><label>腿部</label><input type="number" id="in_fl" placeholder="${d.stats.fatLegs||'—'}" step="0.1"></div>
+      <div class="ig span2"><label>備註（選填）</label><textarea id="in_n" placeholder="身體感受、飲食狀況..."></textarea></div>
+    </div>
+    <button class="sbtn" onclick="saveRecord()">儲存並同步</button>
+  </div>
+  <div class="sh">近期紀錄</div>
+  <div class="iform" style="padding:14px 16px">
+    ${recent.length===0?'<div style="color:var(--i3);font-size:12px;text-align:center;padding:6px 0">尚無紀錄</div>':
+    recent.map(h=>`<div class="hrow"><span class="hdate">${h.date}</span><span class="hvals">${h.weight}kg · ${h.bodyfat}% · ${h.muscle}kg${h.bmi?' · BMI '+h.bmi:''}${h.visceralFat?' · 內臟'+h.visceralFat:''}</span></div>`).join('')}
+  </div></div>`;
+}
+
+async function analyzeInBody(evt){
+  const file=evt.target.files[0]; if(!file) return;
+  const status=document.getElementById('aiStatus');
+  document.getElementById('ibFile').closest('.inbody-zone').style.opacity='.5';
+  status.style.display='block';
+  status.innerHTML='<div class="ai-loading"><span class="spinner"></span> AI 正在讀取 InBody 數據...</div>';
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const base64=e.target.result.split(',')[1], mime=file.type||'image/jpeg';
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{
+          'Content-Type':'application/json',
+          'x-api-key':'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',
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:mime,data:base64}},
+            {type:'text',text:'這是 InBody 體組成報告。只回傳 JSON 不要其他文字：{"weight":體重kg或null,"bodyfat":體脂率%或null,"muscle":骨骼肌重kg或null,"bmi":BMI或null,"visceralFat":內臟脂肪等級數字或null,"whr":腰臀比或null,"muscleArms":手臂肌肉kg或null,"muscleTrunk":軀幹肌肉kg或null,"muscleLegs":腿部肌肉kg或null,"fatArms":手臂脂肪kg或null,"fatTrunk":軀幹脂肪kg或null,"fatLegs":腿部脂肪kg或null}'}
+          ]}]})});
+      const data=await res.json();
+      console.log('API response:', JSON.stringify(data));
+      if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
+      const text=data.content?.find(c=>c.type==='text')?.text||'';
+      const parsed=JSON.parse(text.replace(/```json|```/g,'').trim());
+      const map={weight:'in_w',bodyfat:'in_f',muscle:'in_m',bmi:'in_bmi',visceralFat:'in_vf',whr:'in_whr',muscleArms:'in_ma',muscleTrunk:'in_mt',muscleLegs:'in_ml',fatArms:'in_fa',fatTrunk:'in_ft',fatLegs:'in_fl'};
+      const lbls={weight:'體重',bodyfat:'體脂率',muscle:'骨骼肌',bmi:'BMI',visceralFat:'內臟脂肪',whr:'腰臀比',muscleArms:'手臂肌肉',muscleTrunk:'軀幹肌肉',muscleLegs:'腿部肌肉',fatArms:'手臂脂肪',fatTrunk:'軀幹脂肪',fatLegs:'腿部脂肪'};
+      Object.entries(map).forEach(([k,id])=>{if(parsed[k]!=null){const el=document.getElementById(id);if(el)el.value=parsed[k];}});
+      const found=Object.keys(map).filter(k=>parsed[k]!=null).map(k=>lbls[k]).join('、');
+      status.innerHTML=`<div class="ai-ok"><i class="fa-solid fa-circle-check"></i> 已填入：${found||'未偵測到數值'}</div>`;
+    }catch(err){
+      console.error('InBody error:', err, err?.stack);
+      status.innerHTML=`<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 錯誤：${err?.message||err}</div>`;
+    }
+    document.getElementById('ibFile')?.closest('.inbody-zone') && (document.getElementById('ibFile').closest('.inbody-zone').style.opacity='1');
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveRecord(){
+  const d=DB[curId];
+  const date=document.getElementById('in_d').value;
+  const w=parseFloat(document.getElementById('in_w').value);
+  const f=parseFloat(document.getElementById('in_f').value);
+  const m=parseFloat(document.getElementById('in_m').value);
+  const bmi=parseFloat(document.getElementById('in_bmi').value);
+  const vf=parseFloat(document.getElementById('in_vf').value);
+  const whr=parseFloat(document.getElementById('in_whr').value);
+  const ma=parseFloat(document.getElementById('in_ma').value);
+  const mt=parseFloat(document.getElementById('in_mt').value);
+  const ml=parseFloat(document.getElementById('in_ml').value);
+  const fa=parseFloat(document.getElementById('in_fa').value);
+  const ft=parseFloat(document.getElementById('in_ft').value);
+  const fl=parseFloat(document.getElementById('in_fl').value);
+  const n=document.getElementById('in_n').value.trim();
+  if(!w&&!f&&!m){toast('請至少輸入一項數值');return}
+  const entry={date,weight:w||d.stats.weight,bodyfat:f||d.stats.bodyfat,muscle:m||d.stats.muscle};
+  if(bmi)entry.bmi=bmi; if(vf)entry.visceralFat=vf; if(whr)entry.whr=whr;
+  if(ma)entry.muscleArms=ma; if(mt)entry.muscleTrunk=mt; if(ml)entry.muscleLegs=ml;
+  if(fa)entry.fatArms=fa; if(ft)entry.fatTrunk=ft; if(fl)entry.fatLegs=fl;
+  if(!d.history)d.history=[];
+  d.history.push(entry); d.history.sort((a,b)=>a.date.localeCompare(b.date));
+  if(w)d.stats.weight=w; if(f)d.stats.bodyfat=f; if(m)d.stats.muscle=m;
+  if(bmi)d.stats.bmi=bmi; if(vf)d.stats.visceralFat=vf; if(whr)d.stats.whr=whr;
+  if(ma)d.stats.muscleArms=ma; if(mt)d.stats.muscleTrunk=mt; if(ml)d.stats.muscleLegs=ml;
+  if(fa)d.stats.fatArms=fa; if(ft)d.stats.fatTrunk=ft; if(fl)d.stats.fatLegs=fl;
+  if(n){if(!d.notes)d.notes=[];d.notes.unshift({date,text:n,tags:['今日紀錄']});}
+  fbSave(curId); toast('已儲存並同步 ✓'); renderPage();
+}
+
+/* ── NOTES ── */
+function renderNotes(){
+  const d=DB[curId];
+  if(!(d.notes||[]).length) return`<div class="empty"><div class="empty-t">尚無備註</div><div class="empty-s">在「輸入」頁填寫備註後顯示於此。</div></div>`;
+  return`<div style="margin-top:2px">${d.notes.map(n=>`
+  <div class="ncard"><div class="ndate">${n.date}</div><div class="ntext">${n.text}</div>
+    <div class="ntags">${n.tags.map(t=>`<span class="ntag ${t.includes('注意')||t.includes('痠')?'warn':'ok'}">${t}</span>`).join('')}</div>
+  </div>`).join('')}</div>`;
+}
+
+/* ── COACH VIEW ── */
+function renderCoach(){
+  const cIds=Object.keys(DB).filter(id=>DB[id].inContest);
+  const nIds=Object.keys(DB).filter(id=>!DB[id].inContest);
+  document.getElementById('coachEl').innerHTML=`<div style="margin-top:2px">
+    ${cIds.length?renderLeaderboard():'<div class="empty"><div class="empty-t">尚無參賽成員</div></div>'}
+    <div class="sh" style="margin-top:4px">參賽成員（${cIds.length} 人）</div>
+    <div class="cgrid">${cIds.map(id=>coachCard(id)).join('')}</div>
+    ${nIds.length?`<div class="sh">未參賽成員（${nIds.length} 人）</div>
+    <div class="cgrid">${nIds.map(id=>coachCard(id)).join('')}</div>`:''}
+  </div>`;
+}
+
+function toggleContest(id, val){
+  DB[id].inContest=val; fbSave(id);
+  toast(val?`${DB[id].name} 已加入比賽`:`${DB[id].name} 已移出比賽`);
+  renderCoach();
+}
+
+function coachCard(id){
+  const d=DB[id], sc=getScore(id);
+  const ranked=getRanking(), myRank=ranked.findIndex(r=>r.id===id)+1;
+  const medal=myRank>0&&myRank<=3?MEDALS[myRank-1]:'';
+  const col=scoreCol(sc.score,d.color), ln=(d.notes||[])[0];
+  const manage=canManage();
+  return`<div class="ccard">
+    <div class="ccard-top">
+      <div class="cav" style="background:${d.color}15;color:${d.color}">${ini(d.name)}</div>
+      <div class="cmeta">
+        <div class="cname">${medal} ${d.name}</div>
+        <div class="csub">${d.sex==='F'?'女':'男'} · ${d.age||'—'}歲 · ${d.height||'—'}cm</div>
+        <div class="trow" style="margin-top:6px" onclick="${manage?`toggleContest('${id}',${!d.inContest})`:''}">
+          <div class="ttrack${d.inContest?' on':''}" style="${manage?'':'opacity:.4;cursor:not-allowed'}"><div class="tthumb"></div></div>
+          <span class="tlabel" style="font-size:12px;${manage?'':'color:var(--i3)'}">加入比賽</span>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:auto">
+        ${d.inContest
+          ?`<div style="font-family:var(--fs);font-size:clamp(22px,5vw,32px);font-weight:700;color:${col};line-height:1;font-variant-numeric:tabular-nums">${sc.score}</div>
+             <div style="font-family:var(--fm);font-size:10px;color:var(--i3)">/ 10 分</div>`
+          :`<div style="font-family:var(--fm);font-size:11px;color:var(--i3);background:var(--p2);padding:5px 10px;border-radius:100px">未參賽</div>`
+        }
+      </div>
+    </div>
+    <div class="csg">
+      <div class="csi"><div class="csi-l">體脂率</div><div class="csi-v">${d.stats.bodyfat}<span class="csi-u">%</span></div><div class="csi-d" style="color:var(--ok)">↓ ${Math.max(0,sc.fatDrop)}%</div></div>
+      <div class="csi"><div class="csi-l">體脂得分</div><div class="csi-v" style="color:${d.color}">${sc.fatScore}<span class="csi-u">/8</span></div></div>
+      <div class="csi"><div class="csi-l">肌肉量</div><div class="csi-v">${d.stats.muscle}<span class="csi-u">kg</span></div><div class="csi-d" style="color:var(--ok)">↑ ${Math.max(0,sc.musGain)}kg</div></div>
+      <div class="csi"><div class="csi-l">肌肉得分</div><div class="csi-v" style="color:${d.color}">${sc.musScore}<span class="csi-u">/2</span></div></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px"><span style="color:var(--i3);font-family:var(--fm)">體脂</span><span style="color:${d.color};font-family:var(--fm)">${sc.fatScore} / 8</span></div>
+      <div class="track"><div class="fill" style="width:${sc.fatScore/FAT_MAX*100}%;background:${d.color}"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;margin-top:7px"><span style="color:var(--i3);font-family:var(--fm)">肌肉</span><span style="color:${d.color};font-family:var(--fm)">${sc.musScore} / 2</span></div>
+      <div class="track"><div class="fill" style="width:${sc.musScore/MUS_MAX*100}%;background:${d.color}88"></div></div>
+    </div>
+    <div class="clast">
+      <div class="clast-d">${ln?ln.date+' 最新備註':'尚無備註'}</div>
+      <div class="clast-t">${ln?ln.text:''}</div>
+    </div>
+  </div>`;
+}
+
+/* ── ADD MEMBER ── */
+function toggleModalContest(){
+  modalContest=!modalContest;
+  const t=document.getElementById('modalContestTrack');
+  if(t) t.classList.toggle('on', modalContest);
+}
+function openModal(){
+  modalContest=true;
+  const existing=document.getElementById('memberModal'); if(existing)existing.remove();
+  const ov=document.createElement('div');
+  ov.className='modal-overlay'; ov.id='memberModal';
+  ov.innerHTML=renderModal();
+  document.body.appendChild(ov);
+  // bind color picks
+  ov.querySelectorAll('.cpick').forEach(el=>{
+    el.addEventListener('click',()=>{
+      pickColor=el.dataset.color;
+      ov.querySelectorAll('.cpick').forEach(x=>x.classList.remove('sel'));
+      el.classList.add('sel');
+    });
+  });
+  ov.addEventListener('click',e=>{if(e.target===ov)closeModal();});
+}
+function closeModal(){const el=document.getElementById('memberModal');if(el)el.remove();}
+function renderModal(){
+  return`<div class="modal">
+    <div class="modal-title">新增成員</div>
+    <div class="igrid">
+      <div class="ig"><label>名字</label><input id="am_n" placeholder="輸入名字" maxlength="12"></div>
+      <div class="ig"><label>登入密碼</label><input id="am_pw" type="password" placeholder="設定密碼"></div>
+      <div class="ig span2">
+        <div class="trow" onclick="toggleModalContest()">
+          <div class="ttrack on" id="modalContestTrack"><div class="tthumb"></div></div>
+          <span class="tlabel">加入比賽排行</span>
+        </div>
+      </div>
+      <div class="ig"><label>性別</label><select id="am_s"><option value="F">女</option><option value="M">男</option></select></div>
+      <div class="ig"><label>年齡</label><input id="am_a" type="number" placeholder="25"></div>
+      <div class="ig"><label>身高 (cm)</label><input id="am_h" type="number" placeholder="165" step="0.1"></div>
+      <div class="ig"><label>體重 (kg)</label><input id="am_w" type="number" placeholder="60" step="0.1"></div>
+      <div class="ig"><label>體脂率 (%)</label><input id="am_f2" type="number" placeholder="22" step="0.1"></div>
+      <div class="ig"><label>肌肉量 (kg)</label><input id="am_m2" type="number" placeholder="40" step="0.1"></div>
+      <div class="ig"><label>目標體重</label><input id="am_tw" type="number" placeholder="55" step="0.1"></div>
+      <div class="ig"><label>目標體脂率</label><input id="am_tf" type="number" placeholder="18" step="0.1"></div>
+      <div class="ig"><label>目標肌肉量</label><input id="am_tm" type="number" placeholder="43" step="0.1"></div>
+      <div class="ig span2"><label>代表色</label>
+        <div class="color-row">${PALETTE.map(c=>`<div class="cpick${c===pickColor?' sel':''}" data-color="${c}" style="background:${c}"></div>`).join('')}</div>
+      </div>
+    </div>
+    <button class="sbtn" onclick="addMember()">建立並同步</button>
+    <button class="sec-btn" onclick="closeModal()">取消</button>
+  </div>`;
+}
+function addMember(){
+  // Read ALL values from DOM BEFORE closing modal
+  const name=(document.getElementById('am_n').value||'').trim();
+  const pw=(document.getElementById('am_pw').value||'').trim();
+  const inContest=modalContest;
+  const sex=document.getElementById('am_s').value;
+  const age=parseInt(document.getElementById('am_a').value)||0;
+  const height=parseFloat(document.getElementById('am_h').value)||0;
+  const w=parseFloat(document.getElementById('am_w').value)||65;
+  const f=parseFloat(document.getElementById('am_f2').value)||20;
+  const m=parseFloat(document.getElementById('am_m2').value)||42;
+  const tw=parseFloat(document.getElementById('am_tw').value)||+(w-3).toFixed(1);
+  const tf=parseFloat(document.getElementById('am_tf').value)||+(f-3).toFixed(1);
+  const tm=parseFloat(document.getElementById('am_tm').value)||+(m+2).toFixed(1);
+  if(!name){toast('請輸入名字');return}
+  if(!pw){toast('請設定密碼');return}
+  const id=name.toLowerCase().replace(/\s+/g,'_')+'_'+Date.now();
+  DB[id]={name,color:pickColor,sex,age,height,inContest,
+    stats:{weight:w,bodyfat:f,muscle:m},
+    targets:{weight:tw,bodyfat:tf,muscle:tm},
+    history:[{date:new Date().toISOString().slice(0,10),weight:w,bodyfat:f,muscle:m}],
+    notes:[]};
+  ROLES[id]={pw,label:name,canAdd:false,isCoach:false,canSeeAll:false};
+  if(window._fbSet) window._fbSet('roles/'+id,{pw,label:name,canAdd:false,isCoach:false,canSeeAll:false});
+  addRoleBtn(id,name,pickColor);
+  closeModal();
+  curId=id; curTab='dash'; fbSave(id); renderMbar();
+  document.querySelectorAll('.tab').forEach((x,i)=>x.classList.toggle('sel',i===0));
+  renderPage(); toast(`${name} 已加入並同步`);
+}
+function addRoleBtn(id,name,color){
+  if(document.getElementById('role-btn-'+id)) return;
+  const btn=document.createElement('button');
+  btn.className='role-btn'; btn.id='role-btn-'+id;
+  btn.onclick=()=>selectRole(id,btn);
+  const ini_=(name||'?').slice(0,1).toUpperCase();
+  btn.innerHTML=`<div class="role-av" style="background:${color}18;color:${color}">${ini_}</div>
+    <div><div class="role-name">${name}</div><div class="role-desc">查看自己的數據與分數</div></div>`;
+  document.getElementById('roleGrid').appendChild(btn);
+}
+
+/* ── CHART ── */
+function setChart(t){chartType=t;killCharts();renderPage();}
+function initChart(){
+  const d=DB[curId], ctx=document.getElementById('trendC');
+  if(!ctx||!(d.history||[]).length) return;
+  const h=d.history;
+  const labels=h.map(x=>x.date.slice(5));
+  const dmap={weight:h.map(x=>x.weight),fat:h.map(x=>x.bodyfat),muscle:h.map(x=>x.muscle)};
+  const tmap={weight:d.targets.weight,fat:d.targets.bodyfat,muscle:d.targets.muscle};
+  const umap={weight:'kg',fat:'%',muscle:'kg'};
+  const col=d.color, gc=isDark?'#ffffff0a':'#0000000a', tc=isDark?'#888898':'#9090a8';
+  charts.trend=new Chart(ctx,{type:'line',data:{labels,datasets:[
+    {label:'實際',data:dmap[chartType],borderColor:col,backgroundColor:col+'15',borderWidth:2,pointBackgroundColor:col,pointRadius:3.5,fill:true,tension:.38},
+    {label:'目標',data:Array(labels.length).fill(tmap[chartType]),borderColor:isDark?'#ffffff22':'#00000018',borderWidth:1,borderDash:[5,5],pointRadius:0,fill:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{backgroundColor:isDark?'#1a1a22':'#fff',borderColor:isDark?'#ffffff18':'#00000018',borderWidth:1,
+      titleColor:isDark?'#c8c8de':'#2a2a35',bodyColor:isDark?'#8888a8':'#52526a',padding:10,
+      titleFont:{family:'DM Mono',size:11},bodyFont:{family:'Inter',size:12},
+      callbacks:{label:v=>`${v.dataset.label}: ${v.parsed.y}${umap[chartType]}`}}},
+    scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:11,family:'DM Mono'}},border:{color:gc}},
+      y:{grid:{color:gc},ticks:{color:tc,font:{size:11,family:'DM Mono'}},border:{color:gc}}}}});
+}
+
+/* ── TOAST ── */
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* ── BOOT ── */
+document.addEventListener('fbReady',()=>{if(currentRole)startSync();loadSavedRoles();},{once:true});
+if(window._fbReady) loadSavedRoles();
+</script>
+</body>
+</html>
