@@ -352,14 +352,7 @@ body{background:var(--p1);color:var(--i0);font-family:var(--fs);font-size:14px;l
   <div class="mbar" id="mbar"></div>
 
   <div id="normalUI">
-    <div class="tabs" id="tabsEl">
-      <div class="tab sel" onclick="swTab('dash',this)">總覽</div>
-      <div class="tab" onclick="swTab('score',this)">競賽分數</div>
-      <div class="tab" onclick="swTab('goals',this)">目標</div>
-      <div class="tab" onclick="swTab('input',this)">輸入</div>
-      <div class="tab" onclick="swTab('notes',this)">備註</div>
-      <div class="tab" onclick="swTab('settings',this)">設定</div>
-    </div>
+    <div class="tabs" id="tabsEl"></div>
     <div class="page" id="pageEl"></div>
   </div>
 
@@ -512,6 +505,7 @@ function initApp(){
   if(window._fbReady){ startSync(); loadSavedRoles(); }
   else document.addEventListener('fbReady',()=>{ startSync(); loadSavedRoles(); },{once:true});
   setSyncStatus('busy');
+  renderTabs();
   renderMbar();
   coachMode ? renderCoach() : renderPage();
 }
@@ -521,7 +515,40 @@ function ini(n){return(n||'?').slice(0,1).toUpperCase()}
 function bmiOf(id){const d=DB[id];return d?.height?(d.stats.weight/Math.pow(d.height/100,2)).toFixed(1):'—'}
 function scoreCol(s,col){return s>=7?col:s>=4?'var(--gold)':'var(--warn)'}
 const MEDALS=['🥇','🥈','🥉'];
-function canManage(){return!!(currentRole&&ROLES[currentRole]&&(ROLES[currentRole].canAdd||ROLES[currentRole].isCoach))}
+function canManage(){return!!(currentRole&&ROLES[currentRole]&&ROLES[currentRole].canAdd===true)}
+
+function renderMemberMgmt(){
+  const rows = Object.keys(DB).map(function(id){
+    const d = DB[id];
+    const statusColor = d.inContest ? 'var(--ok)' : 'var(--i3)';
+    const statusText  = d.inContest ? '參賽中' : '未參賽';
+    const btn = '<button onclick="deleteMember(\'' + id + '\')" style="padding:4px 10px;background:transparent;border:1px solid var(--warn-l);color:var(--warn);border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--fs)">刪除</button>';
+    return '<div class="hrow" style="display:flex;align-items:center;gap:10px">'
+      + '<div style="width:28px;height:28px;border-radius:50%;background:' + d.color + '18;color:' + d.color + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">' + ini(d.name) + '</div>'
+      + '<span style="flex:1;font-size:13px;color:var(--i1)">' + d.name + '</span>'
+      + '<span style="font-family:var(--fm);font-size:10px;color:' + statusColor + '">' + statusText + '</span>'
+      + btn
+      + '</div>';
+  }).join('');
+  return '<div class="sh" style="margin-top:4px">成員管理</div>'
+    + '<div class="iform" style="padding:14px 16px">' + rows + '</div>';
+}
+
+/* ── RENDER TABS ── */
+function renderTabs(){
+  const role = ROLES[currentRole];
+  const tabs = [
+    {key:'dash',   label:'總覽'},
+    {key:'score',  label:'競賽分數'},
+    {key:'goals',  label:'目標'},
+    {key:'input',  label:'輸入'},
+    {key:'notes',  label:'備註'},
+  ];
+  if(role?.canAdd) tabs.push({key:'settings', label:'⚙ 設定'});
+  document.getElementById('tabsEl').innerHTML = tabs.map((t,i)=>
+    `<div class="tab${i===0?' sel':''}" onclick="swTab('${t.key}',this)">${t.label}</div>`
+  ).join('');
+}
 
 /* ── RENDER MBAR ── */
 function renderMbar(){
@@ -560,11 +587,12 @@ function killCharts(){Object.values(charts).forEach(c=>{try{c.destroy()}catch(e)
 function renderPage(){
   killCharts();
   const el=document.getElementById('pageEl');
-  if(curTab==='dash')      el.innerHTML=renderDash();
-  else if(curTab==='score') el.innerHTML=renderScore();
-  else if(curTab==='goals') el.innerHTML=renderGoals();
-  else if(curTab==='input') el.innerHTML=renderInput();
-  else if(curTab==='notes') el.innerHTML=renderNotes();
+  if(curTab==='dash')         el.innerHTML=renderDash();
+  else if(curTab==='score')    el.innerHTML=renderScore();
+  else if(curTab==='goals')    el.innerHTML=renderGoals();
+  else if(curTab==='input')    el.innerHTML=renderInput();
+  else if(curTab==='notes')    el.innerHTML=renderNotes();
+  else if(curTab==='settings') el.innerHTML=renderSettings();
   if(curTab==='dash'||curTab==='score') setTimeout(initChart,60);
 }
 
@@ -644,6 +672,7 @@ function renderDash(){
     </div>
   </div>`:''}
   ${renderLeaderboard()}
+  ${canManage() ? renderMemberMgmt() : ''}
   <div class="cc">
     <div class="cc-head">
       <span class="cc-title">量測趨勢</span>
