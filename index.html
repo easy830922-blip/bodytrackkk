@@ -358,6 +358,7 @@ body{background:var(--p1);color:var(--i0);font-family:var(--fs);font-size:14px;l
       <div class="tab" onclick="swTab('goals',this)">目標</div>
       <div class="tab" onclick="swTab('input',this)">輸入</div>
       <div class="tab" onclick="swTab('notes',this)">備註</div>
+      <div class="tab" onclick="swTab('settings',this)">設定</div>
     </div>
     <div class="page" id="pageEl"></div>
   </div>
@@ -378,7 +379,7 @@ body{background:var(--p1);color:var(--i0);font-family:var(--fs);font-size:14px;l
 const ROLES = {
   erin:  { pw:'e888', label:'Erin',  canAdd:true,  isCoach:false, canSeeAll:true  },
   henry: { pw:'h888', label:'Henry', canAdd:false, isCoach:false, canSeeAll:false },
-  coach: { pw:'v888', label:'教練',  canAdd:true,  isCoach:true,  canSeeAll:true  },
+  coach: { pw:'v888', label:'教練',  canAdd:false, isCoach:true,  canSeeAll:true  },
 };
 let currentRole = null, selectedRole = null;
 
@@ -434,6 +435,7 @@ function getRanking() {
 
 /* ── DEFAULT DATA ── */
 const PALETTE=['#b8934a','#2d6a4f','#1a1a2e','#c0392b','#4a6fa5','#7b5e8a','#5a8a6a','#8a5a4a'];
+let userApiKey = sessionStorage.getItem('bt_api_key') || '';
 let pickColor=PALETTE[0], modalContest=true;
 let isDark=false, coachMode=false, curId='erin', curTab='dash', chartType='fat';
 let charts={};
@@ -463,18 +465,19 @@ function startSync(){
   if(!window._fbListen) return;
   let lastSnapshot = null;
   window._fbListen('members', val => {
-    if(val){
+    if(val && Object.keys(val).length > 0){
       const snapshot = JSON.stringify(val);
-      if(snapshot === lastSnapshot){ setSyncStatus('ok'); return; } // no change, skip re-render
+      if(snapshot === lastSnapshot){ setSyncStatus('ok'); return; }
       lastSnapshot = snapshot;
-      const prevId = curId;
       DB = val;
       if(!DB[curId]) curId = Object.keys(DB)[0];
       renderMbar();
-      // Only full re-render if not currently typing in a form
       const active = document.activeElement;
       const isTyping = active && (active.tagName==='INPUT'||active.tagName==='TEXTAREA'||active.tagName==='SELECT');
       if(!isTyping){ coachMode ? renderCoach() : renderPage(); }
+    } else {
+      // Firebase empty — write default members
+      window._fbSet('members', DB).then(()=>setSyncStatus('ok')).catch(()=>setSyncStatus('err'));
     }
     setSyncStatus('ok');
   });
@@ -779,8 +782,12 @@ async function analyzeInBody(evt){
   reader.onload=async e=>{
     try{
       const base64=e.target.result.split(',')[1], mime=file.type||'image/jpeg';
-      const res=await fetch('https://warm-chickadee-65.easy830922-blip.deno.net',{method:'POST',headers:{
-          'Content-Type':'application/json'
+      if(!userApiKey){ status.innerHTML='<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 請先在「設定」頁輸入 API Key</div>'; document.getElementById('ibFile').closest('.inbody-zone').style.opacity='1'; return; }
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{
+          'Content-Type':'application/json',
+          'x-api-key': userApiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
         },
         body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,
           messages:[{role:'user',content:[
@@ -837,6 +844,78 @@ function saveRecord(){
   fbSave(curId); toast('已儲存並同步 ✓'); renderPage();
 }
 
+/* ── SETTINGS ── */
+function renderSettings(){
+  const saved = sessionStorage.getItem('bt_api_key')||'';
+  return`<div style="margin-top:2px">
+  <div class="iform">
+    <div class="sh" style="margin-top:0">AI 辨識設定</div>
+    <div style="font-size:13px;color:var(--i2);margin-bottom:16px;line-height:1.6">
+      輸入你的 Anthropic API Key 後，才能使用 InBody 圖片自動辨識功能。<br>
+      Key 只存在你的瀏覽器，不會上傳到任何伺服器。
+    </div>
+    <div class="ig span2" style="margin-bottom:14px">
+      <label>Anthropic API Key</label>
+      <div style="display:flex;gap:8px">
+        <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." value="${saved}"
+          style="flex:1;background:var(--p1);border:1px solid var(--line2);color:var(--i0);border-radius:var(--rs);padding:10px 12px;font-size:13px;font-family:var(--fm);outline:none;transition:border .18s"
+          onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--line2)'">
+        <button onclick="toggleApiKeyVisibility()" id="eyeBtn"
+          style="padding:0 12px;background:var(--p2);border:1px solid var(--line2);border-radius:var(--rs);cursor:pointer;color:var(--i2);font-size:13px">
+          <i class="fa-regular fa-eye"></i>
+        </button>
+      </div>
+    </div>
+    <button class="sbtn" onclick="saveApiKey()">儲存 API Key</button>
+    ${saved ? `<button class="sec-btn" onclick="clearApiKey()" style="color:var(--warn);border-color:var(--warn-l)">清除 API Key</button>` : ''}
+  </div>
+  <div class="iform" style="margin-top:0">
+    <div class="sh" style="margin-top:0">狀態</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0">
+      <div style="width:10px;height:10px;border-radius:50%;background:${saved?'var(--ok)':'var(--i4)'};flex-shrink:0"></div>
+      <span style="font-size:13px;color:${saved?'var(--ok)':'var(--i3)'}">
+        ${saved ? 'API Key 已設定，可使用圖片辨識' : '尚未設定 API Key'}
+      </span>
+    </div>
+  </div>
+  <div class="iform" style="margin-top:0">
+    <div class="sh" style="margin-top:0">如何取得 API Key</div>
+    <div style="font-size:13px;color:var(--i2);line-height:1.8">
+      1. 前往 <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a><br>
+      2. 註冊 / 登入帳號<br>
+      3. 左側點「API Keys」→「Create Key」<br>
+      4. 複製 <span style="font-family:var(--fm);font-size:12px;background:var(--p2);padding:2px 6px;border-radius:4px">sk-ant-...</span> 開頭的 key 貼入上方
+    </div>
+  </div>
+  </div>`;
+}
+function saveApiKey(){
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if(!key){ toast('請輸入 API Key'); return; }
+  if(!key.startsWith('sk-ant-')){ toast('格式不對，應以 sk-ant- 開頭'); return; }
+  userApiKey = key;
+  sessionStorage.setItem('bt_api_key', key);
+  toast('API Key 已儲存 ✓');
+  renderPage();
+}
+function clearApiKey(){
+  userApiKey = '';
+  sessionStorage.removeItem('bt_api_key');
+  toast('API Key 已清除');
+  renderPage();
+}
+function toggleApiKeyVisibility(){
+  const input = document.getElementById('apiKeyInput');
+  const btn = document.getElementById('eyeBtn');
+  if(input.type==='password'){
+    input.type='text';
+    btn.innerHTML='<i class="fa-regular fa-eye-slash"></i>';
+  } else {
+    input.type='password';
+    btn.innerHTML='<i class="fa-regular fa-eye"></i>';
+  }
+}
+
 /* ── NOTES ── */
 function renderNotes(){
   const d=DB[curId];
@@ -864,6 +943,21 @@ function toggleContest(id, val){
   DB[id].inContest=val; fbSave(id);
   toast(val?`${DB[id].name} 已加入比賽`:`${DB[id].name} 已移出比賽`);
   renderCoach();
+}
+
+function deleteMember(id){
+  const name = DB[id]?.name||id;
+  if(!confirm(`確定要刪除「${name}」？此操作無法復原。`)) return;
+  delete DB[id];
+  if(window._fbSet) window._fbSet('members/'+id, null);
+  if(window._fbSet) window._fbSet('roles/'+id, null);
+  // Remove login button
+  const btn = document.getElementById('role-btn-'+id);
+  if(btn) btn.remove();
+  if(curId===id) curId=Object.keys(DB)[0]||'erin';
+  renderMbar();
+  renderCoach();
+  toast(`${name} 已刪除`);
 }
 
 function coachCard(id){
@@ -907,6 +1001,9 @@ function coachCard(id){
       <div class="clast-d">${ln?ln.date+' 最新備註':'尚無備註'}</div>
       <div class="clast-t">${ln?ln.text:''}</div>
     </div>
+    ${canManage()?`<button onclick="deleteMember('${id}')" style="margin-top:12px;width:100%;padding:8px;background:transparent;border:1px solid var(--warn-l);color:var(--warn);border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:var(--fs);transition:all .18s" onmouseover="this.style.background='var(--warn-l)'" onmouseout="this.style.background='transparent'">
+      <i class="fa-solid fa-trash" style="font-size:11px;margin-right:5px"></i>刪除成員
+    </button>`:''}
   </div>`;
 }
 
