@@ -428,7 +428,7 @@ function getRanking() {
 
 /* ── DEFAULT DATA ── */
 const PALETTE=['#b8934a','#2d6a4f','#1a1a2e','#c0392b','#4a6fa5','#7b5e8a','#5a8a6a','#8a5a4a'];
-let userApiKey = sessionStorage.getItem('bt_api_key') || '';
+let userApiKey = localStorage.getItem('bt_api_key') || '';
 let pickColor=PALETTE[0], modalContest=true;
 let isDark=false, coachMode=false, curId='erin', curTab='dash', chartType='fat';
 let charts={};
@@ -813,22 +813,22 @@ async function analyzeInBody(evt){
   reader.onload=async e=>{
     try{
       const base64=e.target.result.split(',')[1], mime=file.type||'image/jpeg';
-      if(!userApiKey){ status.innerHTML='<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 請先在「設定」頁輸入 API Key</div>'; document.getElementById('ibFile').closest('.inbody-zone').style.opacity='1'; return; }
-      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{
-          'Content-Type':'application/json',
-          'x-api-key': userApiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,
-          messages:[{role:'user',content:[
-            {type:'image',source:{type:'base64',media_type:mime,data:base64}},
-            {type:'text',text:'這是 InBody 體組成報告。只回傳 JSON 不要其他文字：{"weight":體重kg或null,"bodyfat":體脂率%或null,"muscle":骨骼肌重kg或null,"bmi":BMI或null,"visceralFat":內臟脂肪等級數字或null,"whr":腰臀比或null,"muscleArms":手臂肌肉kg或null,"muscleTrunk":軀幹肌肉kg或null,"muscleLegs":腿部肌肉kg或null,"fatArms":手臂脂肪kg或null,"fatTrunk":軀幹脂肪kg或null,"fatLegs":腿部脂肪kg或null}'}
-          ]}]})});
+      if(!userApiKey){ status.innerHTML='<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 請先在「設定」頁輸入 Gemini API Key</div>'; document.getElementById('ibFile').closest('.inbody-zone').style.opacity='1'; return; }
+      const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+userApiKey,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{parts:[
+            {inline_data:{mime_type:mime,data:base64}},
+            {text:'這是 InBody 體組成報告。只回傳 JSON 不要其他文字：{"weight":體重kg或null,"bodyfat":體脂率%或null,"muscle":骨骼肌重kg或null,"bmi":BMI或null,"visceralFat":內臟脂肪等級數字或null,"whr":腰臀比或null,"muscleArms":手臂肌肉kg或null,"muscleTrunk":軀幹肌肉kg或null,"muscleLegs":腿部肌肉kg或null,"fatArms":手臂脂肪kg或null,"fatTrunk":軀幹脂肪kg或null,"fatLegs":腿部脂肪kg或null}'}
+          ]}],
+          generationConfig:{maxOutputTokens:500,temperature:0}
+        })
+      });
       const data=await res.json();
-      console.log('API response:', JSON.stringify(data));
+      console.log('Gemini response:', JSON.stringify(data));
       if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-      const text=data.content?.find(c=>c.type==='text')?.text||'';
+      const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
       const parsed=JSON.parse(text.replace(/```json|```/g,'').trim());
       const map={weight:'in_w',bodyfat:'in_f',muscle:'in_m',bmi:'in_bmi',visceralFat:'in_vf',whr:'in_whr',muscleArms:'in_ma',muscleTrunk:'in_mt',muscleLegs:'in_ml',fatArms:'in_fa',fatTrunk:'in_ft',fatLegs:'in_fl'};
       const lbls={weight:'體重',bodyfat:'體脂率',muscle:'骨骼肌',bmi:'BMI',visceralFat:'內臟脂肪',whr:'腰臀比',muscleArms:'手臂肌肉',muscleTrunk:'軀幹肌肉',muscleLegs:'腿部肌肉',fatArms:'手臂脂肪',fatTrunk:'軀幹脂肪',fatLegs:'腿部脂肪'};
@@ -877,18 +877,18 @@ function saveRecord(){
 
 /* ── SETTINGS ── */
 function renderSettings(){
-  const saved = sessionStorage.getItem('bt_api_key')||'';
+  const saved = localStorage.getItem('bt_api_key')||'';
   return`<div style="margin-top:2px">
   <div class="iform">
     <div class="sh" style="margin-top:0">AI 辨識設定</div>
     <div style="font-size:13px;color:var(--i2);margin-bottom:16px;line-height:1.6">
-      輸入你的 Anthropic API Key 後，才能使用 InBody 圖片自動辨識功能。<br>
+      輸入你的 Gemini API Key 後，才能使用 InBody 圖片自動辨識功能。<br>
       Key 只存在你的瀏覽器，不會上傳到任何伺服器。
     </div>
     <div class="ig span2" style="margin-bottom:14px">
       <label>Anthropic API Key</label>
       <div style="display:flex;gap:8px">
-        <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." value="${saved}"
+        <input type="password" id="apiKeyInput" placeholder="AIza..." value="${saved}"
           style="flex:1;background:var(--p1);border:1px solid var(--line2);color:var(--i0);border-radius:var(--rs);padding:10px 12px;font-size:13px;font-family:var(--fm);outline:none;transition:border .18s"
           onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--line2)'">
         <button onclick="toggleApiKeyVisibility()" id="eyeBtn"
@@ -905,17 +905,17 @@ function renderSettings(){
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0">
       <div style="width:10px;height:10px;border-radius:50%;background:${saved?'var(--ok)':'var(--i4)'};flex-shrink:0"></div>
       <span style="font-size:13px;color:${saved?'var(--ok)':'var(--i3)'}">
-        ${saved ? 'API Key 已設定，可使用圖片辨識' : '尚未設定 API Key'}
+        ${saved ? 'API Gemini Key 已設定，可使用圖片辨識' : '尚未設定 Gemini API Key'}
       </span>
     </div>
   </div>
   <div class="iform" style="margin-top:0">
     <div class="sh" style="margin-top:0">如何取得 API Key</div>
     <div style="font-size:13px;color:var(--i2);line-height:1.8">
-      1. 前往 <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a><br>
-      2. 註冊 / 登入帳號<br>
-      3. 左側點「API Keys」→「Create Key」<br>
-      4. 複製 <span style="font-family:var(--fm);font-size:12px;background:var(--p2);padding:2px 6px;border-radius:4px">sk-ant-...</span> 開頭的 key 貼入上方
+      1. 前往 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--gold)">aistudio.google.com/apikey</a><br>
+      2. 用 Google 帳號登入（免費）<br>
+      3. 點「Create API Key」<br>
+      4. 複製 <span style="font-family:var(--fm);font-size:12px;background:var(--p2);padding:2px 6px;border-radius:4px">AIza...</span> 開頭的 key 貼入上方
     </div>
   </div>
   </div>`;
@@ -923,15 +923,15 @@ function renderSettings(){
 function saveApiKey(){
   const key = document.getElementById('apiKeyInput').value.trim();
   if(!key){ toast('請輸入 API Key'); return; }
-  if(!key.startsWith('sk-ant-')){ toast('格式不對，應以 sk-ant- 開頭'); return; }
+  if(!key.startsWith('AIza')){ toast('格式不對，Gemini Key 應以 AIza 開頭'); return; }
   userApiKey = key;
-  sessionStorage.setItem('bt_api_key', key);
+  localStorage.setItem('bt_api_key', key);
   toast('API Key 已儲存 ✓');
   renderPage();
 }
 function clearApiKey(){
   userApiKey = '';
-  sessionStorage.removeItem('bt_api_key');
+  localStorage.removeItem('bt_api_key');
   toast('API Key 已清除');
   renderPage();
 }
