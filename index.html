@@ -461,8 +461,21 @@ function fbSave(id){
 }
 function startSync(){
   if(!window._fbListen) return;
+  let lastSnapshot = null;
   window._fbListen('members', val => {
-    if(val){ DB=val; if(!DB[curId]) curId=Object.keys(DB)[0]; renderMbar(); coachMode?renderCoach():renderPage(); }
+    if(val){
+      const snapshot = JSON.stringify(val);
+      if(snapshot === lastSnapshot){ setSyncStatus('ok'); return; } // no change, skip re-render
+      lastSnapshot = snapshot;
+      const prevId = curId;
+      DB = val;
+      if(!DB[curId]) curId = Object.keys(DB)[0];
+      renderMbar();
+      // Only full re-render if not currently typing in a form
+      const active = document.activeElement;
+      const isTyping = active && (active.tagName==='INPUT'||active.tagName==='TEXTAREA'||active.tagName==='SELECT');
+      if(!isTyping){ coachMode ? renderCoach() : renderPage(); }
+    }
     setSyncStatus('ok');
   });
 }
@@ -766,11 +779,8 @@ async function analyzeInBody(evt){
   reader.onload=async e=>{
     try{
       const base64=e.target.result.split(',')[1], mime=file.type||'image/jpeg';
-      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{
-          'Content-Type':'application/json',
-          'x-api-key':'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',
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true'
+      const res=await fetch('https://warm-chickadee-65.easy830922-blip.deno.net',{method:'POST',headers:{
+          'Content-Type':'application/json'
         },
         body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,
           messages:[{role:'user',content:[
