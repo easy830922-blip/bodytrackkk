@@ -520,14 +520,16 @@ function canManage(){return!!(currentRole&&ROLES[currentRole]&&ROLES[currentRole
 function renderMemberMgmt(){
   const rows = Object.keys(DB).map(function(id){
     const d = DB[id];
-    const statusColor = d.inContest ? 'var(--ok)' : 'var(--i3)';
-    const statusText  = d.inContest ? '參賽中' : '未參賽';
-    const btn = '<button onclick="deleteMember(\'' + id + '\')" style="padding:4px 10px;background:transparent;border:1px solid var(--warn-l);color:var(--warn);border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--fs)">刪除</button>';
-    return '<div class="hrow" style="display:flex;align-items:center;gap:10px">'
-      + '<div style="width:28px;height:28px;border-radius:50%;background:' + d.color + '18;color:' + d.color + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">' + ini(d.name) + '</div>'
-      + '<span style="flex:1;font-size:13px;color:var(--i1)">' + d.name + '</span>'
-      + '<span style="font-family:var(--fm);font-size:10px;color:' + statusColor + '">' + statusText + '</span>'
-      + btn
+    const isSelf = (id === currentRole);
+    // Contest toggle button
+    const contestBtn = '<button onclick="toggleContest('' + id + '',' + (!d.inContest) + ')" style="padding:3px 10px;border-radius:100px;font-size:11px;cursor:pointer;font-family:var(--fs);border:1px solid ' + (d.inContest?'var(--ok)':'var(--line2)') + ';background:' + (d.inContest?'var(--ok-l)':'transparent') + ';color:' + (d.inContest?'var(--ok)':'var(--i3)') + '">' + (d.inContest?'✓ 參賽中':'未參賽') + '</button>';
+    // Delete button — hidden for self
+    const delBtn = isSelf ? '' : '<button onclick="deleteMember('' + id + '')" style="padding:3px 10px;background:transparent;border:1px solid var(--warn-l);color:var(--warn);border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--fs)">刪除</button>';
+    return '<div class="hrow" style="display:flex;align-items:center;gap:8px">'
+      + '<div style="width:26px;height:26px;border-radius:50%;background:' + d.color + '18;color:' + d.color + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">' + ini(d.name) + '</div>'
+      + '<span style="flex:1;font-size:13px;color:var(--i1)">' + d.name + (isSelf?' <span style="font-size:10px;color:var(--i3)">(我)</span>':'') + '</span>'
+      + contestBtn
+      + delBtn
       + '</div>';
   }).join('');
   return '<div class="sh" style="margin-top:4px">成員管理</div>'
@@ -1120,6 +1122,8 @@ function addMember(){
   renderPage(); toast(`${name} 已加入並同步`);
 }
 function addRoleBtn(id,name,color){
+  // Don't add built-in roles again
+  if(['erin','henry','coach'].includes(id)) return;
   if(document.getElementById('role-btn-'+id)) return;
   const btn=document.createElement('button');
   btn.className='role-btn'; btn.id='role-btn-'+id;
