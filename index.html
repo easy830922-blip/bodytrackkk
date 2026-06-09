@@ -361,7 +361,12 @@ body{background:var(--p1);color:var(--i0);font-family:var(--fs);font-size:14px;l
       <span class="coach-label"><i class="fa-solid fa-trophy" style="margin-right:6px;font-size:11px"></i>教練裁判視角</span>
       <span class="coach-date" id="coachDateEl"></span>
     </div>
+    <div class="tabs" id="coachTabsEl">
+      <div class="tab sel" onclick="swCoachTab('overview',this)">總覽</div>
+      <div class="tab" onclick="swCoachTab('upload',this)">上傳數據</div>
+    </div>
     <div class="page" id="coachEl"></div>
+    <div class="page" id="coachUploadEl" style="display:none"></div>
   </div>
 </div>
 
@@ -481,7 +486,10 @@ async function loadSavedRoles(){
     const saved = await window._fbGet('roles');
     if(!saved) return;
     Object.entries(saved).forEach(([id,role])=>{
-      if(!ROLES[id]) ROLES[id]=role;
+      if(!ROLES[id]){
+        // Ensure new members can only see themselves
+        ROLES[id] = Object.assign({canSeeAll:false, canAdd:false, isCoach:false}, role);
+      }
       addRoleBtn(id, role.label, DB[id]?.color||'#888');
     });
   } catch(e){}
@@ -520,11 +528,11 @@ const MEDALS=['🥇','🥈','🥉'];
 function loadGeminiKey(){
   if(!window._fbGet) {
     document.addEventListener('fbReady', loadGeminiKey, {once:true});
-    return;
+    return Promise.resolve();
   }
-  window._fbGet('settings').then(function(val){
+  return window._fbGet('settings').then(function(val){
     if(val){
-      if(val.gemini_key && !userApiKey){
+      if(val.gemini_key){
         userApiKey = val.gemini_key;
         localStorage.setItem('bt_api_key', val.gemini_key);
       }
@@ -541,24 +549,128 @@ function renderMemberMgmt(){
   const rows = Object.keys(DB).map(function(id){
     const d = DB[id];
     const isSelf = (id === currentRole);
-    // Contest toggle button
     const tcVal = String(!d.inContest);
     const tcBorder = d.inContest ? 'var(--ok)' : 'var(--line2)';
     const tcBg = d.inContest ? 'var(--ok-l)' : 'transparent';
     const tcColor = d.inContest ? 'var(--ok)' : 'var(--i3)';
-    const tcLabel = d.inContest ? '✓ 參賽中' : '未參賽';
-    const contestBtn = '<button onclick="toggleContest(\'' + id + '\',' + tcVal + ')" style="padding:3px 10px;border-radius:100px;font-size:11px;cursor:pointer;font-family:var(--fs);border:1px solid ' + tcBorder + ';background:' + tcBg + ';color:' + tcColor + '">' + tcLabel + '</button>';
-    // Delete button — hidden for self
+    const contestBtn = '<button onclick="toggleContest(\'' + id + '\',' + tcVal + ')" style="padding:3px 10px;border-radius:100px;font-size:11px;cursor:pointer;font-family:var(--fs);border:1px solid ' + tcBorder + ';background:' + tcBg + ';color:' + tcColor + '">' + (d.inContest ? '✓ 參賽中' : '未參賽') + '</button>';
+    const editBtn = '<button onclick="openEditMember(\'' + id + '\')" style="padding:3px 10px;background:transparent;border:1px solid var(--line2);color:var(--i2);border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--fs)">編輯</button>';
     const delBtn = isSelf ? '' : '<button onclick="deleteMember(\'' + id + '\')" style="padding:3px 10px;background:transparent;border:1px solid var(--warn-l);color:var(--warn);border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--fs)">刪除</button>';
-    return '<div class="hrow" style="display:flex;align-items:center;gap:8px">'
-      + '<div style="width:26px;height:26px;border-radius:50%;background:' + d.color + '18;color:' + d.color + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">' + ini(d.name) + '</div>'
-      + '<span style="flex:1;font-size:13px;color:var(--i1)">' + d.name + (isSelf?' <span style="font-size:10px;color:var(--i3)">(我)</span>':'') + '</span>'
-      + contestBtn
-      + delBtn
+    const histCount = (d.history||[]).length;
+    const delHistBtn = histCount > 0
+      ? '<button onclick="openDeleteHistory(\'' + id + '\')" style="padding:3px 10px;background:transparent;border:1px solid var(--line2);color:var(--i3);border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--fs)">紀錄 (' + histCount + ')</button>'
+      : '';
+    return '<div style="padding:11px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:7px">'
+      + '<div style="display:flex;align-items:center;gap:8px">'
+      + '<div style="width:28px;height:28px;border-radius:50%;background:' + d.color + '18;color:' + d.color + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">' + ini(d.name) + '</div>'
+      + '<span style="flex:1;font-size:13px;font-weight:500;color:var(--i0)">' + d.name + (isSelf ? ' <span style="font-size:10px;color:var(--i3);font-weight:400">(我)</span>' : '') + '</span>'
+      + '<span style="font-size:11px;color:var(--i3);font-family:var(--fm)">' + (d.age||'—') + '歲 · ' + (d.height||'—') + 'cm</span>'
+      + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;padding-left:36px">'
+      + contestBtn + editBtn + delHistBtn + delBtn
+      + '</div>'
       + '</div>';
   }).join('');
   return '<div class="sh" style="margin-top:4px">成員管理</div>'
     + '<div class="iform" style="padding:14px 16px">' + rows + '</div>';
+}
+
+function openEditMember(id){
+  const d = DB[id];
+  const existing = document.getElementById('memberModal');
+  if(existing) existing.remove();
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay'; ov.id = 'memberModal';
+  ov.innerHTML = '<div class="modal">'
+    + '<div class="modal-title">編輯 — ' + d.name + '</div>'
+    + '<div class="igrid">'
+    + '<div class="ig"><label>姓名</label><input id="em_name" value="' + d.name + '" maxlength="12"></div>'
+    + '<div class="ig"><label>性別</label><select id="em_sex"><option value="F"' + (d.sex==='F'?' selected':'') + '>女</option><option value="M"' + (d.sex==='M'?' selected':'') + '>男</option></select></div>'
+    + '<div class="ig"><label>年齡</label><input id="em_age" type="number" value="' + (d.age||'') + '"></div>'
+    + '<div class="ig"><label>身高 (cm)</label><input id="em_height" type="number" step="0.1" value="' + (d.height||'') + '"></div>'
+    + '<div class="ig"><label>目標體重 (kg)</label><input id="em_tw" type="number" step="0.1" value="' + (d.targets.weight||'') + '"></div>'
+    + '<div class="ig"><label>目標體脂率 (%)</label><input id="em_tf" type="number" step="0.1" value="' + (d.targets.bodyfat||'') + '"></div>'
+    + '<div class="ig span2"><label>目標肌肉量 (kg)</label><input id="em_tm" type="number" step="0.1" value="' + (d.targets.muscle||'') + '"></div>'
+    + '</div>'
+    + '<button class="sbtn" onclick="saveEditMember(\'' + id + '\')">儲存變更</button>'
+    + '<button class="sec-btn" onclick="closeModal()">取消</button>'
+    + '</div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e){ if(e.target===ov) closeModal(); });
+}
+
+function saveEditMember(id){
+  const d = DB[id];
+  const name   = document.getElementById('em_name').value.trim();
+  const sex    = document.getElementById('em_sex').value;
+  const age    = parseInt(document.getElementById('em_age').value) || 0;
+  const height = parseFloat(document.getElementById('em_height').value) || 0;
+  const tw     = parseFloat(document.getElementById('em_tw').value);
+  const tf     = parseFloat(document.getElementById('em_tf').value);
+  const tm     = parseFloat(document.getElementById('em_tm').value);
+  if(!name){ toast('請輸入姓名'); return; }
+  d.name = name; d.sex = sex; d.age = age; d.height = height;
+  if(tw) d.targets.weight  = tw;
+  if(tf) d.targets.bodyfat = tf;
+  if(tm) d.targets.muscle  = tm;
+  // Update login role label
+  if(ROLES[id]) ROLES[id].label = name;
+  if(window._fbSet) window._fbSet('roles/' + id + '/label', name);
+  fbSave(id);
+  closeModal();
+  renderMbar();
+  toast(name + ' 資料已更新');
+  renderPage();
+}
+
+function openDeleteHistory(id){
+  const d = DB[id];
+  const hist = d.history || [];
+  const existing = document.getElementById('memberModal');
+  if(existing) existing.remove();
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay'; ov.id = 'memberModal';
+  const rows = hist.map(function(h, i){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">'
+      + '<span style="font-family:var(--fm);font-size:11px;color:var(--i3);flex:0 0 80px">' + h.date + '</span>'
+      + '<span style="flex:1;font-size:12px;color:var(--i1)">' + h.weight + 'kg · ' + h.bodyfat + '% · ' + h.muscle + 'kg</span>'
+      + '<button onclick="deleteHistoryEntry(\'' + id + '\',' + i + ')" style="padding:3px 10px;background:transparent;border:1px solid var(--warn-l);color:var(--warn);border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--fs)">刪除</button>'
+      + '</div>';
+  }).join('');
+  ov.innerHTML = '<div class="modal">'
+    + '<div class="modal-title">' + d.name + ' — 量測紀錄</div>'
+    + '<div style="max-height:55vh;overflow-y:auto;margin-bottom:14px">'
+    + (rows || '<div style="text-align:center;color:var(--i3);padding:20px">尚無紀錄</div>')
+    + '</div>'
+    + '<button class="sec-btn" onclick="closeModal()" style="margin-top:0">關閉</button>'
+    + '</div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e){ if(e.target===ov) closeModal(); });
+}
+
+function deleteHistoryEntry(id, idx){
+  const d = DB[id];
+  if(!confirm('確定刪除這筆紀錄？')) return;
+  d.history.splice(idx, 1);
+  // Recalculate stats from latest history
+  if(d.history.length > 0){
+    const latest = d.history[d.history.length - 1];
+    d.stats.weight  = latest.weight;
+    d.stats.bodyfat = latest.bodyfat;
+    d.stats.muscle  = latest.muscle;
+    if(latest.bmi)          d.stats.bmi          = latest.bmi;
+    if(latest.visceralFat)  d.stats.visceralFat  = latest.visceralFat;
+    if(latest.whr)          d.stats.whr          = latest.whr;
+    if(latest.muscleArms)   d.stats.muscleArms   = latest.muscleArms;
+    if(latest.muscleTrunk)  d.stats.muscleTrunk  = latest.muscleTrunk;
+    if(latest.muscleLegs)   d.stats.muscleLegs   = latest.muscleLegs;
+    if(latest.fatArms)      d.stats.fatArms      = latest.fatArms;
+    if(latest.fatTrunk)     d.stats.fatTrunk     = latest.fatTrunk;
+    if(latest.fatLegs)      d.stats.fatLegs      = latest.fatLegs;
+  }
+  fbSave(id);
+  toast('紀錄已刪除');
+  openDeleteHistory(id); // refresh modal
 }
 
 /* ── RENDER TABS ── */
@@ -845,8 +957,20 @@ async function analyzeInBody(evt){
       const provider = localStorage.getItem('bt_api_provider') || 'gemini';
       const key = userApiKey;
 
+      // Always fetch latest key from Firebase (works across all devices/users)
+      if(window._fbGet){
+        try {
+          const s = await window._fbGet('settings');
+          if(s && s.gemini_key){
+            userApiKey = s.gemini_key;
+            localStorage.setItem('bt_api_key', s.gemini_key);
+            key = s.gemini_key;
+            if(s.api_provider) localStorage.setItem('bt_api_provider', s.api_provider);
+          }
+        } catch(e){}
+      }
       if(!key) {
-        status.innerHTML = '<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 請先在「設定」頁輸入 API Key</div>';
+        status.innerHTML = '<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 請 Erin 先在「設定」頁輸入 API Key</div>';
         zone.style.opacity = '1';
         return;
       }
@@ -1298,6 +1422,203 @@ function saveProviderModel(val){
   toast('模型已切換：' + val);
 }
 
+
+
+/* ── COACH UPLOAD ── */
+var coachUploadTarget = null;   // which member the coach is uploading for
+var coachUploadPublic = true;   // whether to show data to the member
+
+function triggerCoachUpload(){ document.getElementById("coachIbFile").click(); }
+
+function swCoachTab(tab, el){
+  document.querySelectorAll('#coachTabsEl .tab').forEach(function(x){ x.classList.remove('sel'); });
+  if(el) el.classList.add('sel');
+  if(tab === 'overview'){
+    document.getElementById('coachEl').style.display = 'block';
+    document.getElementById('coachUploadEl').style.display = 'none';
+  } else {
+    document.getElementById('coachEl').style.display = 'none';
+    document.getElementById('coachUploadEl').style.display = 'block';
+    renderCoachUpload();
+  }
+}
+
+function renderCoachUpload(){
+  const el = document.getElementById('coachUploadEl');
+  const members = Object.keys(DB);
+  if(!coachUploadTarget) coachUploadTarget = '__self__';
+  if(coachUploadTarget !== '__self__' && !DB[coachUploadTarget]) coachUploadTarget = '__self__';
+  const isSelfUpload = (coachUploadTarget === '__self__');
+  const d = isSelfUpload
+    ? { name:'自己', stats:{weight:0,bodyfat:0,muscle:0}, history:[], notes:[] }
+    : DB[coachUploadTarget];
+  if(!d && !isSelfUpload){ coachUploadTarget = '__self__'; renderCoachUpload(); return; }
+  const recent = (d.history||[]).slice().reverse().slice(0,3);
+
+  const memberOptions = '<option value="__self__"' + (coachUploadTarget==='__self__'?' selected':'') + '>自己（僅教練可見）</option>'
+    + members.map(function(id){
+      return '<option value="' + id + '"' + (id===coachUploadTarget?' selected':'') + '>' + DB[id].name + '</option>';
+    }).join('');
+
+  el.innerHTML = '<div style="margin-top:2px">'
+    + '<div class="iform">'
+    + '<div class="sh" style="margin-top:0">選擇成員</div>'
+    + '<div class="igrid">'
+    + '<div class="ig span2"><label>上傳對象</label>'
+    + '<select id="coachTargetSelect" onchange="coachUploadTarget=this.value;renderCoachUpload()" style="width:100%;background:var(--p1);border:1px solid var(--line2);color:var(--i0);border-radius:var(--rs);padding:10px 12px;font-size:14px;font-family:var(--fs);outline:none">'
+    + memberOptions + '</select></div>'
+    + '</div>'
+    + (isSelfUpload
+        ? '<div class="trow" style="margin-bottom:4px;opacity:.4;cursor:not-allowed">'
+          + '<div class="ttrack"><div class="tthumb"></div></div>'
+          + '<div><span class="tlabel">是否顯示給其他成員看</span>'
+          + '<div style="font-size:11px;color:var(--i3);margin-top:2px">選擇「自己」時僅供教練私人保存</div>'
+          + '</div></div>'
+        : '<div class="trow" onclick="coachUploadPublic=!coachUploadPublic;renderCoachUpload()" style="margin-bottom:4px">'
+          + '<div class="ttrack' + (coachUploadPublic?' on':'') + '"><div class="tthumb"></div></div>'
+          + '<div><span class="tlabel">是否顯示給其他成員看</span>'
+          + '<div style="font-size:11px;color:var(--i3);margin-top:2px">' + (coachUploadPublic ? '數據將同步顯示在成員帳號中' : '僅教練可見，不同步給任何成員') + '</div>'
+          + '</div></div>'
+      )
+    + '</div>'
+
+    // Upload zone
+    + '<div class="iform">'
+    + '<div class="sh" style="margin-top:0">新增量測 — ' + d.name + '</div>'
+    + '<div class="inbody-zone" onclick="triggerCoachUpload()" style="margin-bottom:14px">'
+    + '<i class="fa-regular fa-image" style="font-size:20px;color:var(--i3);display:block;margin-bottom:7px"></i>'
+    + '<div style="font-size:13px;color:var(--i2);font-weight:500">上傳 InBody 圖片，AI 自動讀取</div>'
+    + '<div style="font-size:11px;color:var(--i3);margin-top:3px">點擊選取圖片</div>'
+    + '<input type="file" id="coachIbFile" accept="image/*" style="display:none" onchange="analyzeInBodyCoach(event)">'
+    + '</div>'
+    + '<div id="coachAiStatus" style="display:none"></div>'
+    + '<div class="igrid">'
+    + '<div class="ig span2"><label>日期</label><input type="date" id="c_d" value="' + new Date().toISOString().slice(0,10) + '"></div>'
+    + '<div class="ig"><label>體重 (kg)</label><input type="number" id="c_w" placeholder="' + d.stats.weight + '" step="0.1"></div>'
+    + '<div class="ig"><label>體脂率 (%)</label><input type="number" id="c_f" placeholder="' + d.stats.bodyfat + '" step="0.1"></div>'
+    + '<div class="ig"><label>骨骼肌重 (kg)</label><input type="number" id="c_m" placeholder="' + d.stats.muscle + '" step="0.1"></div>'
+    + '<div class="ig"><label>BMI</label><input type="number" id="c_bmi" placeholder="' + (d.stats.bmi||'—') + '" step="0.1"></div>'
+    + '<div class="ig"><label>內臟脂肪等級</label><input type="number" id="c_vf" placeholder="' + (d.stats.visceralFat||'—') + '" step="1"></div>'
+    + '<div class="ig"><label>腰臀比 WHR</label><input type="number" id="c_whr" placeholder="' + (d.stats.whr||'—') + '" step="0.01"></div>'
+    + '<div class="ig"><label>手臂肌肉</label><input type="number" id="c_ma" placeholder="' + (d.stats.muscleArms||'—') + '" step="0.1"></div>'
+    + '<div class="ig"><label>軀幹肌肉</label><input type="number" id="c_mt" placeholder="' + (d.stats.muscleTrunk||'—') + '" step="0.1"></div>'
+    + '<div class="ig span2"><label>腿部肌肉</label><input type="number" id="c_ml" placeholder="' + (d.stats.muscleLegs||'—') + '" step="0.1"></div>'
+    + '<div class="ig"><label>手臂脂肪</label><input type="number" id="c_fa" placeholder="' + (d.stats.fatArms||'—') + '" step="0.1"></div>'
+    + '<div class="ig"><label>軀幹脂肪</label><input type="number" id="c_ft" placeholder="' + (d.stats.fatTrunk||'—') + '" step="0.1"></div>'
+    + '<div class="ig span2"><label>腿部脂肪</label><input type="number" id="c_fl" placeholder="' + (d.stats.fatLegs||'—') + '" step="0.1"></div>'
+    + '<div class="ig span2"><label>備註</label><textarea id="c_n" placeholder="訓練狀況、教練備注..."></textarea></div>'
+    + '</div>'
+    + '<button class="sbtn" onclick="saveCoachRecord()">儲存並同步</button>'
+    + '</div>'
+
+    // Recent records
+    + '<div class="sh">' + d.name + ' 近期紀錄</div>'
+    + '<div class="iform" style="padding:14px 16px">'
+    + (recent.length===0 ? '<div style="color:var(--i3);font-size:12px;text-align:center;padding:6px 0">尚無紀錄</div>'
+      : recent.map(function(h){ return '<div class="hrow"><span class="hdate">' + h.date + '</span><span class="hvals">' + h.weight + 'kg · ' + h.bodyfat + '% · ' + h.muscle + 'kg</span></div>'; }).join(''))
+    + '</div>'
+    + '</div>';
+}
+
+async function analyzeInBodyCoach(evt){
+  const file = evt.target.files[0]; if(!file) return;
+  const status = document.getElementById('coachAiStatus');
+  const zone = document.getElementById('coachIbFile').closest('.inbody-zone');
+  zone.style.opacity = '.5';
+  status.style.display = 'block';
+  status.innerHTML = '<div class="ai-loading"><span class="spinner"></span> AI 正在讀取 InBody 數據...</div>';
+  const reader = new FileReader();
+  reader.onload = async function(e){
+    try {
+      const base64 = e.target.result.split(',')[1];
+      const mime = file.type || 'image/jpeg';
+      // fetch key from Firebase
+      let key = userApiKey;
+      if(window._fbGet){
+        try { const s = await window._fbGet('settings'); if(s&&s.gemini_key){ key=s.gemini_key; userApiKey=key; } } catch(e2){}
+      }
+      if(!key){ status.innerHTML='<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 請先設定 API Key</div>'; zone.style.opacity='1'; return; }
+      const provider = localStorage.getItem('bt_api_provider')||'gemini';
+      const PROMPT = 'From this InBody report image, extract values and return ONLY valid JSON, no other text: {"weight":kg or null,"bodyfat":% or null,"muscle":skeletal muscle kg or null,"bmi":number or null,"visceralFat":level number or null,"whr":ratio or null,"muscleArms":kg or null,"muscleTrunk":kg or null,"muscleLegs":kg or null,"fatArms":kg or null,"fatTrunk":kg or null,"fatLegs":kg or null}';
+      let rawText = '';
+      if(provider==='openai'){
+        const model = localStorage.getItem('bt_openai_model')||'gpt-4o';
+        const res = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model,max_tokens:1024,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'image_url',image_url:{url:'data:'+mime+';base64,'+base64,detail:'high'}},{type:'text',text:PROMPT}]}]})});
+        const data = await res.json(); if(data.error) throw new Error(data.error.message);
+        rawText = data.choices?.[0]?.message?.content||'';
+      } else {
+        const model = localStorage.getItem('bt_gemini_model')||'gemini-2.5-flash';
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+key,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{inline_data:{mime_type:mime,data:base64}},{text:PROMPT}]}],generationConfig:{maxOutputTokens:2048,temperature:0,responseMimeType:'application/json'}})});
+        const data = await res.json(); if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
+        const parts = data.candidates?.[0]?.content?.parts||[];
+        for(const p of parts){ if(p.text&&p.text.trim()){ rawText=p.text; break; } }
+      }
+      if(!rawText) throw new Error('AI 未回傳內容');
+      let js2 = rawText.replace(/```json/g,'').replace(/```/g,'').trim();
+      const fb=js2.indexOf('{'), lb=js2.lastIndexOf('}');
+      if(fb===-1||lb===-1) throw new Error('找不到 JSON：'+rawText.slice(0,100));
+      const parsed = JSON.parse(js2.slice(fb,lb+1));
+      const map={weight:'c_w',bodyfat:'c_f',muscle:'c_m',bmi:'c_bmi',visceralFat:'c_vf',whr:'c_whr',muscleArms:'c_ma',muscleTrunk:'c_mt',muscleLegs:'c_ml',fatArms:'c_fa',fatTrunk:'c_ft',fatLegs:'c_fl'};
+      const lbls={weight:'體重',bodyfat:'體脂率',muscle:'骨骼肌',bmi:'BMI',visceralFat:'內臟脂肪',whr:'腰臀比',muscleArms:'手臂肌肉',muscleTrunk:'軀幹肌肉',muscleLegs:'腿部肌肉',fatArms:'手臂脂肪',fatTrunk:'軀幹脂肪',fatLegs:'腿部脂肪'};
+      Object.entries(map).forEach(function(pair){ if(parsed[pair[0]]!=null){const el=document.getElementById(pair[1]);if(el)el.value=parsed[pair[0]];} });
+      const found = Object.keys(map).filter(function(k){return parsed[k]!=null;}).map(function(k){return lbls[k];}).join('、');
+      status.innerHTML='<div class="ai-ok"><i class="fa-solid fa-circle-check"></i> 已填入：'+(found||'未偵測到數值')+'</div>';
+    } catch(err){
+      status.innerHTML='<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 錯誤：'+err.message+'</div>';
+    }
+    zone.style.opacity='1';
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveCoachRecord(){
+  const id = coachUploadTarget;
+  const isSelf = (id === '__self__');
+  if(!isSelf && (!id||!DB[id])){ toast('請先選擇成員'); return; }
+  const d = isSelf ? {name:'自己',stats:{weight:0,bodyfat:0,muscle:0},history:[],notes:[]} : DB[id];
+  const date = document.getElementById('c_d').value;
+  const w   = parseFloat(document.getElementById('c_w').value);
+  const f   = parseFloat(document.getElementById('c_f').value);
+  const m   = parseFloat(document.getElementById('c_m').value);
+  const bmi = parseFloat(document.getElementById('c_bmi').value);
+  const vf  = parseFloat(document.getElementById('c_vf').value);
+  const whr = parseFloat(document.getElementById('c_whr').value);
+  const ma  = parseFloat(document.getElementById('c_ma').value);
+  const mt  = parseFloat(document.getElementById('c_mt').value);
+  const ml  = parseFloat(document.getElementById('c_ml').value);
+  const fa  = parseFloat(document.getElementById('c_fa').value);
+  const ft  = parseFloat(document.getElementById('c_ft').value);
+  const fl  = parseFloat(document.getElementById('c_fl').value);
+  const n   = document.getElementById('c_n').value.trim();
+  if(!w&&!f&&!m){ toast('請至少輸入一項數值'); return; }
+
+  if(!isSelf && coachUploadPublic){
+    // Save to member's public data
+    const entry = {date, weight:w||d.stats.weight, bodyfat:f||d.stats.bodyfat, muscle:m||d.stats.muscle};
+    if(bmi)entry.bmi=bmi; if(vf)entry.visceralFat=vf; if(whr)entry.whr=whr;
+    if(ma)entry.muscleArms=ma; if(mt)entry.muscleTrunk=mt; if(ml)entry.muscleLegs=ml;
+    if(fa)entry.fatArms=fa; if(ft)entry.fatTrunk=ft; if(fl)entry.fatLegs=fl;
+    if(!d.history) d.history=[];
+    d.history.push(entry); d.history.sort(function(a,b){return a.date.localeCompare(b.date);});
+    if(w)d.stats.weight=w; if(f)d.stats.bodyfat=f; if(m)d.stats.muscle=m;
+    if(bmi)d.stats.bmi=bmi; if(vf)d.stats.visceralFat=vf; if(whr)d.stats.whr=whr;
+    if(ma)d.stats.muscleArms=ma; if(mt)d.stats.muscleTrunk=mt; if(ml)d.stats.muscleLegs=ml;
+    if(fa)d.stats.fatArms=fa; if(ft)d.stats.fatTrunk=ft; if(fl)d.stats.fatLegs=fl;
+    if(n){if(!d.notes)d.notes=[];d.notes.unshift({date,text:'[教練] '+n,tags:['教練備注']});}
+    fbSave(id);
+    toast(DB[id].name + ' 數據已儲存並同步 ✓');
+  } else {
+    // Save as private note (either coach toggled private, or self-upload)
+    if(!DB['coach']) DB['coach']={name:'教練',color:'#b8934a',notes:[]};
+    if(!DB['coach'].notes) DB['coach'].notes=[];
+    const memberLabel = isSelf ? '教練' : DB[id].name;
+    const note = '[私人紀錄 ' + memberLabel + ' ' + date + '] 體重:' + (w||'—') + ' 體脂:' + (f||'—') + '% 肌肉:' + (m||'—') + 'kg' + (n?' — '+n:'');
+    DB['coach'].notes.unshift({date,text:note,tags:['私人','教練']});
+    fbSave('coach');
+    toast('已儲存為教練私人紀錄（不同步給成員）');
+  }
+  renderCoachUpload();
+}
 
 /* ── TOAST ── */
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
