@@ -519,14 +519,18 @@ function scoreCol(s,col){return s>=7?col:s>=4?'var(--gold)':'var(--warn)'}
 const MEDALS=['🥇','🥈','🥉'];
 function loadGeminiKey(){
   if(!window._fbGet) {
-    // retry after firebase ready
     document.addEventListener('fbReady', loadGeminiKey, {once:true});
     return;
   }
-  window._fbGet('settings/gemini_key').then(function(val){
-    if(val && !userApiKey){
-      userApiKey = val;
-      localStorage.setItem('bt_api_key', val);
+  window._fbGet('settings').then(function(val){
+    if(val){
+      if(val.gemini_key && !userApiKey){
+        userApiKey = val.gemini_key;
+        localStorage.setItem('bt_api_key', val.gemini_key);
+      }
+      if(val.api_provider){
+        localStorage.setItem('bt_api_provider', val.api_provider);
+      }
     }
   }).catch(function(){});
 }
@@ -825,49 +829,103 @@ function renderInput(){
 }
 
 async function analyzeInBody(evt){
-  const file=evt.target.files[0]; if(!file) return;
-  const status=document.getElementById('aiStatus');
-  document.getElementById('ibFile').closest('.inbody-zone').style.opacity='.5';
-  status.style.display='block';
-  status.innerHTML='<div class="ai-loading"><span class="spinner"></span> AI 正在讀取 InBody 數據...</div>';
-  const reader=new FileReader();
-  reader.onload=async e=>{
-    try{
-      const base64=e.target.result.split(',')[1], mime=file.type||'image/jpeg';
-      if(!userApiKey){ status.innerHTML='<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 請先在「設定」頁輸入 Gemini API Key</div>'; document.getElementById('ibFile').closest('.inbody-zone').style.opacity='1'; return; }
-      const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+userApiKey,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          contents:[{parts:[
-            {inline_data:{mime_type:mime,data:base64}},
-            {text:'這是 InBody 體組成報告。只回傳 JSON 不要其他文字：{"weight":體重kg或null,"bodyfat":體脂率%或null,"muscle":骨骼肌重kg或null,"bmi":BMI或null,"visceralFat":內臟脂肪等級數字或null,"whr":腰臀比或null,"muscleArms":手臂肌肉kg或null,"muscleTrunk":軀幹肌肉kg或null,"muscleLegs":腿部肌肉kg或null,"fatArms":手臂脂肪kg或null,"fatTrunk":軀幹脂肪kg或null,"fatLegs":腿部脂肪kg或null}'}
-          ]}],
-          generationConfig:{maxOutputTokens:500,temperature:0}
-        })
+  const file = evt.target.files[0];
+  if(!file) return;
+  const status = document.getElementById('aiStatus');
+  const zone = document.getElementById('ibFile').closest('.inbody-zone');
+  zone.style.opacity = '.5';
+  status.style.display = 'block';
+  status.innerHTML = '<div class="ai-loading"><span class="spinner"></span> AI 正在讀取 InBody 數據...</div>';
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const base64 = e.target.result.split(',')[1];
+      const mime = file.type || 'image/jpeg';
+      const provider = localStorage.getItem('bt_api_provider') || 'gemini';
+      const key = userApiKey;
+
+      if(!key) {
+        status.innerHTML = '<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 請先在「設定」頁輸入 API Key</div>';
+        zone.style.opacity = '1';
+        return;
+      }
+
+      const PROMPT = '這是 InBody 體組成報告圖片。請仔細辨識所有數值，只回傳純 JSON 格式，不要任何說明文字、不要 markdown：{"weight":體重kg數字或null,"bodyfat":體脂率%數字或null,"muscle":骨骼肌重kg數字或null,"bmi":BMI數字或null,"visceralFat":內臟脂肪等級數字或null,"whr":腰臀比數字或null,"muscleArms":手臂肌肉kg或null,"muscleTrunk":軀幹肌肉kg或null,"muscleLegs":腿部肌肉kg或null,"fatArms":手臂脂肪kg或null,"fatTrunk":軀幹脂肪kg或null,"fatLegs":腿部脂肪kg或null}';
+
+      let rawText = '';
+
+      if(provider === 'openai') {
+        // OpenAI GPT-4o
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            max_tokens: 500,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image_url', image_url: { url: 'data:' + mime + ';base64,' + base64 } },
+                { type: 'text', text: PROMPT }
+              ]
+            }]
+          })
+        });
+        const data = await res.json();
+        console.log('OpenAI response:', JSON.stringify(data));
+        if(data.error) throw new Error(data.error.message);
+        rawText = data.choices?.[0]?.message?.content || '';
+
+      } else {
+        // Gemini
+        const model = localStorage.getItem('bt_gemini_model') || 'gemini-2.5-flash';
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [
+              { inline_data: { mime_type: mime, data: base64 } },
+              { text: PROMPT }
+            ]}],
+            generationConfig: { maxOutputTokens: 500, temperature: 0, responseMimeType: 'application/json' }
+          })
+        });
+        const data = await res.json();
+        console.log('Gemini response:', JSON.stringify(data));
+        if(data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+        // Get text from any part that has it
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        for(const part of parts) {
+          if(part.text && part.text.trim().length > 0) { rawText = part.text; break; }
+        }
+      }
+
+      console.log('Raw AI text:', rawText);
+      if(!rawText) throw new Error('AI 未回傳任何內容');
+
+      // Extract JSON robustly
+      let jsonStr = rawText.replace(/```json/g,'').replace(/```/g,'').trim();
+      const fb = jsonStr.indexOf('{');
+      const lb = jsonStr.lastIndexOf('}');
+      if(fb === -1 || lb === -1) throw new Error('回傳內容中找不到 JSON，原始回應：' + rawText.slice(0,100));
+      jsonStr = jsonStr.slice(fb, lb + 1);
+      const parsed = JSON.parse(jsonStr);
+
+      const map = {weight:'in_w',bodyfat:'in_f',muscle:'in_m',bmi:'in_bmi',visceralFat:'in_vf',whr:'in_whr',muscleArms:'in_ma',muscleTrunk:'in_mt',muscleLegs:'in_ml',fatArms:'in_fa',fatTrunk:'in_ft',fatLegs:'in_fl'};
+      const lbls = {weight:'體重',bodyfat:'體脂率',muscle:'骨骼肌',bmi:'BMI',visceralFat:'內臟脂肪',whr:'腰臀比',muscleArms:'手臂肌肉',muscleTrunk:'軀幹肌肉',muscleLegs:'腿部肌肉',fatArms:'手臂脂肪',fatTrunk:'軀幹脂肪',fatLegs:'腿部脂肪'};
+      Object.entries(map).forEach(function(pair) {
+        const k = pair[0], id = pair[1];
+        if(parsed[k] != null) { const el = document.getElementById(id); if(el) el.value = parsed[k]; }
       });
-      const data=await res.json();
-      console.log('Gemini response:', JSON.stringify(data));
-      if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-      const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
-      // Extract JSON from response robustly
-      let cleanText = text.replace(/```json/g,'').replace(/```/g,'').trim();
-      // Find first { and last } to extract JSON object
-      const firstBrace = cleanText.indexOf('{');
-      const lastBrace = cleanText.lastIndexOf('}');
-      if(firstBrace === -1 || lastBrace === -1) throw new Error('回傳內容中找不到 JSON');
-      cleanText = cleanText.slice(firstBrace, lastBrace + 1);
-      const parsed = JSON.parse(cleanText);
-      const map={weight:'in_w',bodyfat:'in_f',muscle:'in_m',bmi:'in_bmi',visceralFat:'in_vf',whr:'in_whr',muscleArms:'in_ma',muscleTrunk:'in_mt',muscleLegs:'in_ml',fatArms:'in_fa',fatTrunk:'in_ft',fatLegs:'in_fl'};
-      const lbls={weight:'體重',bodyfat:'體脂率',muscle:'骨骼肌',bmi:'BMI',visceralFat:'內臟脂肪',whr:'腰臀比',muscleArms:'手臂肌肉',muscleTrunk:'軀幹肌肉',muscleLegs:'腿部肌肉',fatArms:'手臂脂肪',fatTrunk:'軀幹脂肪',fatLegs:'腿部脂肪'};
-      Object.entries(map).forEach(([k,id])=>{if(parsed[k]!=null){const el=document.getElementById(id);if(el)el.value=parsed[k];}});
-      const found=Object.keys(map).filter(k=>parsed[k]!=null).map(k=>lbls[k]).join('、');
-      status.innerHTML=`<div class="ai-ok"><i class="fa-solid fa-circle-check"></i> 已填入：${found||'未偵測到數值'}</div>`;
-    }catch(err){
-      console.error('InBody error:', err, err?.stack);
-      status.innerHTML=`<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 錯誤：${err?.message||err}</div>`;
+      const found = Object.keys(map).filter(function(k){ return parsed[k] != null; }).map(function(k){ return lbls[k]; }).join('、');
+      status.innerHTML = '<div class="ai-ok"><i class="fa-solid fa-circle-check"></i> 已填入：' + (found || '未偵測到數值') + '</div>';
+
+    } catch(err) {
+      console.error('InBody error:', err);
+      status.innerHTML = '<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 錯誤：' + (err.message || String(err)) + '</div>';
     }
-    document.getElementById('ibFile')?.closest('.inbody-zone') && (document.getElementById('ibFile').closest('.inbody-zone').style.opacity='1');
+    zone.style.opacity = '1';
   };
   reader.readAsDataURL(file);
 }
@@ -906,17 +964,36 @@ function saveRecord(){
 /* ── SETTINGS ── */
 function renderSettings(){
   const saved = localStorage.getItem('bt_api_key')||'';
+  const provider = localStorage.getItem('bt_api_provider')||'gemini';
+  const geminiModel = localStorage.getItem('bt_gemini_model')||'gemini-2.5-flash';
   return`<div style="margin-top:2px">
   <div class="iform">
     <div class="sh" style="margin-top:0">AI 辨識設定</div>
     <div style="font-size:13px;color:var(--i2);margin-bottom:16px;line-height:1.6">
-      輸入你的 Gemini API Key 後，才能使用 InBody 圖片自動辨識功能。<br>
-      Key 只存在你的瀏覽器，不會上傳到任何伺服器。
+      設定 AI 圖片辨識服務與 API Key。Key 只存在你的瀏覽器與 Firebase，不會外洩。
     </div>
+    <div class="ig span2" style="margin-bottom:12px">
+      <label>AI 服務商</label>
+      <select id="providerSelect" onchange="switchProvider(this.value)"
+        style="width:100%;background:var(--p1);border:1px solid var(--line2);color:var(--i0);border-radius:var(--rs);padding:10px 12px;font-size:14px;font-family:var(--fs);outline:none">
+        <option value="gemini" ${provider==='gemini'?'selected':''}>Google Gemini（免費）</option>
+        <option value="openai" ${provider==='openai'?'selected':''}>OpenAI GPT-4o</option>
+      </select>
+    </div>
+    ${provider==='gemini'?`
+    <div class="ig span2" style="margin-bottom:12px">
+      <label>Gemini 模型</label>
+      <select id="geminiModelSelect" onchange="saveGeminiModel(this.value)"
+        style="width:100%;background:var(--p1);border:1px solid var(--line2);color:var(--i0);border-radius:var(--rs);padding:10px 12px;font-size:14px;font-family:var(--fs);outline:none">
+        <option value="gemini-2.5-flash" ${geminiModel==='gemini-2.5-flash'?'selected':''}>Gemini 2.5 Flash（推薦）</option>
+        <option value="gemini-2.0-flash" ${geminiModel==='gemini-2.0-flash'?'selected':''}>Gemini 2.0 Flash</option>
+        <option value="gemini-1.5-flash" ${geminiModel==='gemini-1.5-flash'?'selected':''}>Gemini 1.5 Flash</option>
+      </select>
+    </div>`:''}
     <div class="ig span2" style="margin-bottom:14px">
-      <label>Anthropic API Key</label>
+      <label>${provider==='openai'?'OpenAI API Key':'Gemini API Key'}</label>
       <div style="display:flex;gap:8px">
-        <input type="password" id="apiKeyInput" placeholder="輸入 Gemini API Key" value="${saved}"
+        <input type="password" id="apiKeyInput" placeholder="${provider==='openai'?'sk-...':'AIza... 或其他格式'}" value="${saved}"
           style="flex:1;background:var(--p1);border:1px solid var(--line2);color:var(--i0);border-radius:var(--rs);padding:10px 12px;font-size:13px;font-family:var(--fm);outline:none;transition:border .18s"
           onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--line2)'">
         <button onclick="toggleApiKeyVisibility()" id="eyeBtn"
@@ -925,7 +1002,7 @@ function renderSettings(){
         </button>
       </div>
     </div>
-    <button class="sbtn" onclick="saveApiKey()">儲存 API Key</button>
+    <button class="sbtn" onclick="saveApiKey()">儲存並同步</button>
     ${saved ? `<button class="sec-btn" onclick="clearApiKey()" style="color:var(--warn);border-color:var(--warn-l)">清除 API Key</button>` : ''}
   </div>
   <div class="iform" style="margin-top:0">
@@ -933,17 +1010,17 @@ function renderSettings(){
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0">
       <div style="width:10px;height:10px;border-radius:50%;background:${saved?'var(--ok)':'var(--i4)'};flex-shrink:0"></div>
       <span style="font-size:13px;color:${saved?'var(--ok)':'var(--i3)'}">
-        ${saved ? 'API Gemini Key 已設定，可使用圖片辨識' : '尚未設定 Gemini API Key'}
+        ${saved ? (provider==='openai'?'OpenAI Key':'Gemini Key') + ' 已設定，可使用圖片辨識' : '尚未設定 API Key'}
       </span>
     </div>
   </div>
   <div class="iform" style="margin-top:0">
     <div class="sh" style="margin-top:0">如何取得 API Key</div>
     <div style="font-size:13px;color:var(--i2);line-height:1.8">
-      1. 前往 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--gold)">aistudio.google.com/apikey</a><br>
-      2. 用 Google 帳號登入（免費）<br>
-      3. 點「Create API Key」<br>
-      4. 複製 <span style="font-family:var(--fm);font-size:12px;background:var(--p2);padding:2px 6px;border-radius:4px">AIza...</span> 開頭的 key 貼入上方
+      ${provider==='openai'?
+        '1. 前往 <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--gold)">platform.openai.com/api-keys</a><br>2. 登入後點「Create new secret key」<br>3. 複製 <span style="font-family:var(--fm);font-size:12px;background:var(--p2);padding:2px 6px;border-radius:4px">sk-...</span> 貼入上方' :
+        '1. 前往 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--gold)">aistudio.google.com/apikey</a><br>2. 用 Google 帳號登入（免費）<br>3. 點「Create API Key」<br>4. 複製 key 貼入上方'
+      }
     </div>
   </div>
   </div>`;
