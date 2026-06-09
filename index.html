@@ -588,9 +588,9 @@ function openEditMember(id){
     + '<div class="ig"><label>性別</label><select id="em_sex"><option value="F"' + (d.sex==='F'?' selected':'') + '>女</option><option value="M"' + (d.sex==='M'?' selected':'') + '>男</option></select></div>'
     + '<div class="ig"><label>年齡</label><input id="em_age" type="number" value="' + (d.age||'') + '"></div>'
     + '<div class="ig"><label>身高 (cm)</label><input id="em_height" type="number" step="0.1" value="' + (d.height||'') + '"></div>'
-    + '<div class="ig"><label>目標體重 (kg)</label><input id="em_tw" type="number" step="0.1" value="' + (d.targets.weight||'') + '"></div>'
-    + '<div class="ig"><label>目標體脂率 (%)</label><input id="em_tf" type="number" step="0.1" value="' + (d.targets.bodyfat||'') + '"></div>'
-    + '<div class="ig span2"><label>目標肌肉量 (kg)</label><input id="em_tm" type="number" step="0.1" value="' + (d.targets.muscle||'') + '"></div>'
+    + '<div class="ig"><label>目標體重 (kg) <span style=\"font-size:10px;color:var(--i3)\">選填</span></label><input id="em_tw" type="number" step="0.1" placeholder="' + (d.targets.weight||'未設定') + '"></div>'
+    + '<div class="ig"><label>目標體脂率 (%) <span style=\"font-size:10px;color:var(--i3)\">選填</span></label><input id="em_tf" type="number" step="0.1" placeholder="' + (d.targets.bodyfat||'未設定') + '"></div>'
+    + '<div class="ig span2"><label>目標肌肉量 (kg) <span style=\"font-size:10px;color:var(--i3)\">選填</span></label><input id="em_tm" type="number" step="0.1" placeholder="' + (d.targets.muscle||'未設定') + '"></div>'
     + '</div>'
     + '<button class="sbtn" onclick="saveEditMember(\'' + id + '\')">儲存變更</button>'
     + '<button class="sec-btn" onclick="closeModal()">取消</button>'
@@ -678,11 +678,11 @@ function renderTabs(){
   const role = ROLES[currentRole];
   const tabs = [
     {key:'dash',   label:'總覽'},
-    {key:'score',  label:'競賽分數'},
-    {key:'goals',  label:'目標'},
-    {key:'input',  label:'輸入'},
-    {key:'notes',  label:'備註'},
   ];
+  if(DB[curId]?.inContest) tabs.push({key:'score', label:'競賽分數'});
+  tabs.push({key:'goals',  label:'目標'});
+  tabs.push({key:'input',  label:'輸入'});
+  tabs.push({key:'notes',  label:'備註'});
   if(role?.canAdd) tabs.push({key:'settings', label:'⚙ 設定'});
   document.getElementById('tabsEl').innerHTML = tabs.map((t,i)=>
     `<div class="tab${i===0?' sel':''}" onclick="swTab('${t.key}',this)">${t.label}</div>`
@@ -810,7 +810,7 @@ function renderDash(){
       }).join('')}
     </div>
   </div>`:''}
-  ${renderLeaderboard()}
+  ${DB[curId]?.inContest ? renderLeaderboard() : ''}
   ${canManage() ? renderMemberMgmt() : ''}
   <div class="cc">
     <div class="cc-head">
@@ -828,6 +828,9 @@ function renderDash(){
 /* ── SCORE ── */
 function renderScore(){
   const d=DB[curId], sc=getScore(curId);
+  if(!d.inContest){
+    return`<div class="empty"><div class="empty-t">未參加競賽</div><div class="empty-s">此成員尚未加入比賽排行，競賽分數不計算。</div></div>`;
+  }
   const ranked=getRanking(), myRank=ranked.findIndex(r=>r.id===curId)+1;
   const col=scoreCol(sc.score,d.color);
   return`<div style="margin-top:2px">
