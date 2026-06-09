@@ -835,7 +835,7 @@ async function analyzeInBody(evt){
     try{
       const base64=e.target.result.split(',')[1], mime=file.type||'image/jpeg';
       if(!userApiKey){ status.innerHTML='<div class="ai-err"><i class="fa-solid fa-circle-exclamation"></i> 請先在「設定」頁輸入 Gemini API Key</div>'; document.getElementById('ibFile').closest('.inbody-zone').style.opacity='1'; return; }
-      const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+userApiKey,{
+      const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+userApiKey,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
