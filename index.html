@@ -851,7 +851,7 @@ async function analyzeInBody(evt){
         return;
       }
 
-      const PROMPT = '這是 InBody 體組成報告圖片。請仔細辨識所有數值，只回傳純 JSON 格式，不要任何說明文字、不要 markdown：{"weight":體重kg數字或null,"bodyfat":體脂率%數字或null,"muscle":骨骼肌重kg數字或null,"bmi":BMI數字或null,"visceralFat":內臟脂肪等級數字或null,"whr":腰臀比數字或null,"muscleArms":手臂肌肉kg或null,"muscleTrunk":軀幹肌肉kg或null,"muscleLegs":腿部肌肉kg或null,"fatArms":手臂脂肪kg或null,"fatTrunk":軀幹脂肪kg或null,"fatLegs":腿部脂肪kg或null}';
+      const PROMPT = 'From this InBody report image, extract values and return ONLY valid JSON, no other text: {"weight":kg or null,"bodyfat":% or null,"muscle":skeletal muscle kg or null,"bmi":number or null,"visceralFat":level number or null,"whr":ratio or null,"muscleArms":kg or null,"muscleTrunk":kg or null,"muscleLegs":kg or null,"fatArms":kg or null,"fatTrunk":kg or null,"fatLegs":kg or null}';
 
       let rawText = '';
 
@@ -898,7 +898,7 @@ async function analyzeInBody(evt){
               { inline_data: { mime_type: mime, data: base64 } },
               { text: PROMPT }
             ]}],
-            generationConfig: { maxOutputTokens: 1024, temperature: 0, responseMimeType: 'application/json' }
+            generationConfig: { maxOutputTokens: 2048, temperature: 0, responseMimeType: 'application/json' }
           })
         });
         const data = await res.json();
