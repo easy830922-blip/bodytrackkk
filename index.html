@@ -856,22 +856,32 @@ async function analyzeInBody(evt){
       let rawText = '';
 
       if(provider === 'openai') {
-        // OpenAI GPT-4o
+        // OpenAI GPT-4o — requires dangerouslyAllowBrowser equivalent
+        const openaiModel = localStorage.getItem('bt_openai_model') || 'gpt-4o';
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + key,
+            'OpenAI-Organization': '',
+          },
           body: JSON.stringify({
-            model: 'gpt-4o',
+            model: openaiModel,
             max_tokens: 500,
+            response_format: { type: 'json_object' },
             messages: [{
               role: 'user',
               content: [
-                { type: 'image_url', image_url: { url: 'data:' + mime + ';base64,' + base64 } },
+                { type: 'image_url', image_url: { url: 'data:' + mime + ';base64,' + base64, detail: 'high' } },
                 { type: 'text', text: PROMPT }
               ]
             }]
           })
         });
+        if(!res.ok){
+          const errData = await res.json().catch(()=>({}));
+          throw new Error(errData.error?.message || 'OpenAI HTTP ' + res.status);
+        }
         const data = await res.json();
         console.log('OpenAI response:', JSON.stringify(data));
         if(data.error) throw new Error(data.error.message);
@@ -980,16 +990,7 @@ function renderSettings(){
         <option value="openai" ${provider==='openai'?'selected':''}>OpenAI GPT-4o</option>
       </select>
     </div>
-    ${provider==='gemini'?`
-    <div class="ig span2" style="margin-bottom:12px">
-      <label>Gemini 模型</label>
-      <select id="geminiModelSelect" onchange="saveGeminiModel(this.value)"
-        style="width:100%;background:var(--p1);border:1px solid var(--line2);color:var(--i0);border-radius:var(--rs);padding:10px 12px;font-size:14px;font-family:var(--fs);outline:none">
-        <option value="gemini-2.5-flash" ${geminiModel==='gemini-2.5-flash'?'selected':''}>Gemini 2.5 Flash（推薦）</option>
-        <option value="gemini-2.0-flash" ${geminiModel==='gemini-2.0-flash'?'selected':''}>Gemini 2.0 Flash</option>
-        <option value="gemini-1.5-flash" ${geminiModel==='gemini-1.5-flash'?'selected':''}>Gemini 1.5 Flash</option>
-      </select>
-    </div>`:''}
+    ${renderModelSelector(provider, geminiModel)}
     <div class="ig span2" style="margin-bottom:14px">
       <label>${provider==='openai'?'OpenAI API Key':'Gemini API Key'}</label>
       <div style="display:flex;gap:8px">
