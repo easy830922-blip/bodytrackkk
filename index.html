@@ -893,7 +893,7 @@ function renderSettings(){
     <div class="ig span2" style="margin-bottom:14px">
       <label>Anthropic API Key</label>
       <div style="display:flex;gap:8px">
-        <input type="password" id="apiKeyInput" placeholder="AIza..." value="${saved}"
+        <input type="password" id="apiKeyInput" placeholder="輸入 Gemini API Key" value="${saved}"
           style="flex:1;background:var(--p1);border:1px solid var(--line2);color:var(--i0);border-radius:var(--rs);padding:10px 12px;font-size:13px;font-family:var(--fm);outline:none;transition:border .18s"
           onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--line2)'">
         <button onclick="toggleApiKeyVisibility()" id="eyeBtn"
@@ -928,7 +928,7 @@ function renderSettings(){
 function saveApiKey(){
   const key = document.getElementById('apiKeyInput').value.trim();
   if(!key){ toast('請輸入 API Key'); return; }
-  if(!key.startsWith('AIza')){ toast('格式不對，Gemini Key 應以 AIza 開頭'); return; }
+  
   userApiKey = key;
   localStorage.setItem('bt_api_key', key);
   toast('API Key 已儲存 ✓');
