@@ -850,7 +850,14 @@ async function analyzeInBody(evt){
       console.log('Gemini response:', JSON.stringify(data));
       if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
       const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
-      const parsed=JSON.parse(text.replace(/```json|```/g,'').trim());
+      // Extract JSON from response robustly
+      let cleanText = text.replace(/```json/g,'').replace(/```/g,'').trim();
+      // Find first { and last } to extract JSON object
+      const firstBrace = cleanText.indexOf('{');
+      const lastBrace = cleanText.lastIndexOf('}');
+      if(firstBrace === -1 || lastBrace === -1) throw new Error('回傳內容中找不到 JSON');
+      cleanText = cleanText.slice(firstBrace, lastBrace + 1);
+      const parsed = JSON.parse(cleanText);
       const map={weight:'in_w',bodyfat:'in_f',muscle:'in_m',bmi:'in_bmi',visceralFat:'in_vf',whr:'in_whr',muscleArms:'in_ma',muscleTrunk:'in_mt',muscleLegs:'in_ml',fatArms:'in_fa',fatTrunk:'in_ft',fatLegs:'in_fl'};
       const lbls={weight:'體重',bodyfat:'體脂率',muscle:'骨骼肌',bmi:'BMI',visceralFat:'內臟脂肪',whr:'腰臀比',muscleArms:'手臂肌肉',muscleTrunk:'軀幹肌肉',muscleLegs:'腿部肌肉',fatArms:'手臂脂肪',fatTrunk:'軀幹脂肪',fatLegs:'腿部脂肪'};
       Object.entries(map).forEach(([k,id])=>{if(parsed[k]!=null){const el=document.getElementById(id);if(el)el.value=parsed[k];}});
