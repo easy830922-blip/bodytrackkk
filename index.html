@@ -508,6 +508,8 @@ function initApp(){
   renderTabs();
   renderMbar();
   coachMode ? renderCoach() : renderPage();
+  // Load Gemini key from Firebase
+  loadGeminiKey();
 }
 
 /* ── HELPERS ── */
@@ -515,6 +517,20 @@ function ini(n){return(n||'?').slice(0,1).toUpperCase()}
 function bmiOf(id){const d=DB[id];return d?.height?(d.stats.weight/Math.pow(d.height/100,2)).toFixed(1):'—'}
 function scoreCol(s,col){return s>=7?col:s>=4?'var(--gold)':'var(--warn)'}
 const MEDALS=['🥇','🥈','🥉'];
+function loadGeminiKey(){
+  if(!window._fbGet) {
+    // retry after firebase ready
+    document.addEventListener('fbReady', loadGeminiKey, {once:true});
+    return;
+  }
+  window._fbGet('settings/gemini_key').then(function(val){
+    if(val && !userApiKey){
+      userApiKey = val;
+      localStorage.setItem('bt_api_key', val);
+    }
+  }).catch(function(){});
+}
+
 function canManage(){return!!(currentRole&&ROLES[currentRole]&&ROLES[currentRole].canAdd===true)}
 
 function renderMemberMgmt(){
@@ -937,6 +953,7 @@ function saveApiKey(){
 function clearApiKey(){
   userApiKey = '';
   localStorage.removeItem('bt_api_key');
+  if(window._fbSet) window._fbSet('settings/gemini_key', null);
   toast('API Key 已清除');
   renderPage();
 }
