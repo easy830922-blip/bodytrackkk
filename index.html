@@ -522,9 +522,14 @@ function renderMemberMgmt(){
     const d = DB[id];
     const isSelf = (id === currentRole);
     // Contest toggle button
-    const contestBtn = '<button onclick="toggleContest('' + id + '',' + (!d.inContest) + ')" style="padding:3px 10px;border-radius:100px;font-size:11px;cursor:pointer;font-family:var(--fs);border:1px solid ' + (d.inContest?'var(--ok)':'var(--line2)') + ';background:' + (d.inContest?'var(--ok-l)':'transparent') + ';color:' + (d.inContest?'var(--ok)':'var(--i3)') + '">' + (d.inContest?'✓ 參賽中':'未參賽') + '</button>';
+    const tcVal = String(!d.inContest);
+    const tcBorder = d.inContest ? 'var(--ok)' : 'var(--line2)';
+    const tcBg = d.inContest ? 'var(--ok-l)' : 'transparent';
+    const tcColor = d.inContest ? 'var(--ok)' : 'var(--i3)';
+    const tcLabel = d.inContest ? '✓ 參賽中' : '未參賽';
+    const contestBtn = '<button onclick="toggleContest(\'' + id + '\',' + tcVal + ')" style="padding:3px 10px;border-radius:100px;font-size:11px;cursor:pointer;font-family:var(--fs);border:1px solid ' + tcBorder + ';background:' + tcBg + ';color:' + tcColor + '">' + tcLabel + '</button>';
     // Delete button — hidden for self
-    const delBtn = isSelf ? '' : '<button onclick="deleteMember('' + id + '')" style="padding:3px 10px;background:transparent;border:1px solid var(--warn-l);color:var(--warn);border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--fs)">刪除</button>';
+    const delBtn = isSelf ? '' : '<button onclick="deleteMember(\'' + id + '\')" style="padding:3px 10px;background:transparent;border:1px solid var(--warn-l);color:var(--warn);border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--fs)">刪除</button>';
     return '<div class="hrow" style="display:flex;align-items:center;gap:8px">'
       + '<div style="width:26px;height:26px;border-radius:50%;background:' + d.color + '18;color:' + d.color + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">' + ini(d.name) + '</div>'
       + '<span style="flex:1;font-size:13px;color:var(--i1)">' + d.name + (isSelf?' <span style="font-size:10px;color:var(--i3)">(我)</span>':'') + '</span>'
