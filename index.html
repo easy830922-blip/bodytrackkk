@@ -867,7 +867,7 @@ async function analyzeInBody(evt){
           },
           body: JSON.stringify({
             model: openaiModel,
-            max_tokens: 500,
+            max_tokens: 1024,
             response_format: { type: 'json_object' },
             messages: [{
               role: 'user',
@@ -898,7 +898,7 @@ async function analyzeInBody(evt){
               { inline_data: { mime_type: mime, data: base64 } },
               { text: PROMPT }
             ]}],
-            generationConfig: { maxOutputTokens: 500, temperature: 0, responseMimeType: 'application/json' }
+            generationConfig: { maxOutputTokens: 1024, temperature: 0, responseMimeType: 'application/json' }
           })
         });
         const data = await res.json();
