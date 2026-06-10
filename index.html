@@ -409,7 +409,9 @@ async function doLogin() {
       btn.textContent = '進入'; btn.disabled = false;
       return;
     }
-    if (pw !== savedPw) {
+    // Hash the input password and compare
+    const pwHash = await sha256(pw);
+    if (pwHash !== savedPw) {
       document.getElementById('loginErr').textContent = '密碼錯誤';
       document.getElementById('pwInput').value = '';
       btn.textContent = '進入'; btn.disabled = false;
@@ -1723,15 +1725,26 @@ function showQuotaAlert(){
 function initDefaultPasswords(){
   // Write default passwords to Firebase only if they don't exist yet
   if(!window._fbGet || !window._fbSet) return;
-  const defaults = { erin:'e888', henry:'h888', coach:'v888' };
+  const defaults = {
+    erin:  '83753592405acb87b41f28361cdad77cb40bcd0403f8a10c41d5e882e6be5205',
+    henry: 'a603b85752e14ac15cfbef7e0395e6eb09a638e08c5aa46e71e3ed92c45350fc',
+    coach: '9a94f19f54089a477679a29a336d6deecc98bb8f5e770c44b5a47c23403fd6f9',
+  };
   Object.entries(defaults).forEach(function(pair){
-    const id = pair[0], pw = pair[1];
+    const id = pair[0], hash = pair[1];
     window._fbGet('roles/' + id + '/pw').then(function(val){
-      if(val === null || val === undefined){
-        window._fbSet('roles/' + id + '/pw', pw);
+      // Only write if empty OR still plaintext (migration from old system)
+      if(val === null || val === undefined || val.length < 60){
+        window._fbSet('roles/' + id + '/pw', hash);
       }
     }).catch(function(){});
   });
+}
+
+
+async function sha256(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
 /* ── TOAST ── */
