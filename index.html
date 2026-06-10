@@ -411,8 +411,11 @@ async function doLogin() {
     }
     // Hash the input password and compare
     const pwHash = await sha256(pw);
+    console.log('input hash:', pwHash);
+    console.log('saved hash:', savedPw);
+    console.log('match:', pwHash === savedPw);
     if (pwHash !== savedPw) {
-      document.getElementById('loginErr').textContent = '密碼錯誤';
+      document.getElementById('loginErr').textContent = '密碼錯誤 (debug: check console)';
       document.getElementById('pwInput').value = '';
       btn.textContent = '進入'; btn.disabled = false;
       return;
